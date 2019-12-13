@@ -28,7 +28,7 @@
 
 package org.hisp.dhis.android.core.data.database;
 
-import android.database.sqlite.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.arch.db.access.DbOpenHelper;
 import org.junit.Test;
@@ -46,8 +46,8 @@ public class DbOpenHelperShould {
     public void have_tests_on_database_versions() {
         DbOpenHelper dbOpenHelper = new DbOpenHelper(InstrumentationRegistry.getTargetContext().getApplicationContext()
                 , null);
-        SQLiteDatabase database = dbOpenHelper.getWritableDatabase();
-        assertThat(dbOpenHelper.getWritableDatabase().getVersion()).isEqualTo(DbOpenHelper.VERSION);
+        SQLiteDatabase database = dbOpenHelper.getWritableDatabase("password");
+        assertThat(database.getVersion()).isEqualTo(DbOpenHelper.VERSION);
         database.close();
     }
 }

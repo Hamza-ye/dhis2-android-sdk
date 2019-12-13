@@ -30,7 +30,8 @@ package org.hisp.dhis.android.core.arch.db.access;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
+
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.arch.db.stores.binders.internal.StatementWrapper;
 

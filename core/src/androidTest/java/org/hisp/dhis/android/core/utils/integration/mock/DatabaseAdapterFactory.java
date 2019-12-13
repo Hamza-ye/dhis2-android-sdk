@@ -63,7 +63,7 @@ public class DatabaseAdapterFactory {
     private static DatabaseAdapter create() {
         Context context = InstrumentationRegistry.getTargetContext().getApplicationContext();
         DbOpenHelper dbOpenHelper = new DbOpenHelper(context, dbName);
-        dbOpenHelper.getWritableDatabase();
+        dbOpenHelper.getWritableDatabase("password");
         Stetho.initializeWithDefaults(context);
         return new SqLiteDatabaseAdapter(dbOpenHelper);
     }

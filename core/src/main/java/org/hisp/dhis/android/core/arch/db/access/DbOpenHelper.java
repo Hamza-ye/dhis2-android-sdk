@@ -30,8 +30,9 @@ package org.hisp.dhis.android.core.arch.db.access;
 
 import android.content.Context;
 import android.content.res.AssetManager;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteOpenHelper;
+
+import net.sqlcipher.database.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteOpenHelper;
 import android.os.Build;
 
 import org.hisp.dhis.android.core.arch.db.access.internal.DbMigrationExecutor;
@@ -54,6 +55,7 @@ public class DbOpenHelper extends SQLiteOpenHelper {
     @VisibleForTesting
     public DbOpenHelper(Context context, String databaseName, int targetVersion) {
         super(context, databaseName, null, targetVersion);
+        SQLiteDatabase.loadLibs(context);
         this.assetManager = context.getAssets();
         this.targetVersion = targetVersion;
     }

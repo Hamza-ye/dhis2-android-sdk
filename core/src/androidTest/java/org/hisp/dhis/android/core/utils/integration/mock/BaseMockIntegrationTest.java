@@ -28,7 +28,7 @@
 
 package org.hisp.dhis.android.core.utils.integration.mock;
 
-import android.database.sqlite.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.arch.api.internal.ServerURLWrapper;

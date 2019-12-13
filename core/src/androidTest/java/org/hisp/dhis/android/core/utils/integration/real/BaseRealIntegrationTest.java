@@ -29,9 +29,10 @@
 package org.hisp.dhis.android.core.utils.integration.real;
 
 import android.content.Context;
-import android.database.sqlite.SQLiteDatabase;
 
 import com.facebook.stetho.Stetho;
+
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.arch.call.internal.GenericCallData;
@@ -71,7 +72,7 @@ public abstract class BaseRealIntegrationTest {
         context = InstrumentationRegistry.getTargetContext().getApplicationContext();
 
         DbOpenHelper dbOpenHelper = new DbOpenHelper(context, null);
-        sqLiteDatabase = dbOpenHelper.getWritableDatabase();
+        sqLiteDatabase = dbOpenHelper.getWritableDatabase("password");
         databaseAdapter = new SqLiteDatabaseAdapter(dbOpenHelper);
         credentialsSecureStore = new CredentialsSecureStoreImpl(context);
         resourceHandler = ResourceHandler.create(databaseAdapter);
@@ -82,7 +83,12 @@ public abstract class BaseRealIntegrationTest {
     @After
     public void tearDown() throws IOException {
         assertThat(sqLiteDatabase).isNotNull();
-        sqLiteDatabase.close();
+        try {
+            sqLiteDatabase.close();
+        } catch (Exception e) {
+            // Otherwise SQLiteException: unable to close due to unfinalized statements or unfinished backups: sqlite3_close() failed
+            // with SQL cipher
+        }
     }
 
     protected SQLiteDatabase database() {

@@ -29,10 +29,11 @@
 package org.hisp.dhis.android.core.utils.integration.mock;
 
 import android.content.Context;
-import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
 import com.facebook.stetho.Stetho;
+
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.D2Factory;

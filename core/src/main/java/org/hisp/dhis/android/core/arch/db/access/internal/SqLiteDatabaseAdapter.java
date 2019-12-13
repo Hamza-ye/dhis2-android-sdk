@@ -29,12 +29,13 @@ package org.hisp.dhis.android.core.arch.db.access.internal;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
+
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.arch.db.access.DatabaseAdapter;
 import org.hisp.dhis.android.core.arch.db.access.DbOpenHelper;
 import org.hisp.dhis.android.core.arch.db.access.Transaction;
-import org.hisp.dhis.android.core.arch.db.stores.binders.internal.SQLStatementWrapper;
+import org.hisp.dhis.android.core.arch.db.stores.binders.internal.SQLCipherStatementWrapper;
 import org.hisp.dhis.android.core.arch.db.stores.binders.internal.StatementWrapper;
 
 import androidx.annotation.NonNull;
@@ -47,7 +48,7 @@ public class SqLiteDatabaseAdapter implements DatabaseAdapter {
         if (dbOpenHelper == null) {
             throw new IllegalArgumentException("dbOpenHelper == null");
         }
-        dbOpenHelper.getWritableDatabase();
+        dbOpenHelper.getWritableDatabase("password");
         this.dbOpenHelper = dbOpenHelper;
     }
 
@@ -60,7 +61,7 @@ public class SqLiteDatabaseAdapter implements DatabaseAdapter {
 
     @Override
     public StatementWrapper compileStatement(String sql) {
-        return new SQLStatementWrapper(database().compileStatement(sql));
+        return new SQLCipherStatementWrapper(database().compileStatement(sql));
     }
 
     @Override
@@ -115,10 +116,10 @@ public class SqLiteDatabaseAdapter implements DatabaseAdapter {
 
     @Override
     public SQLiteDatabase database() {
-        return dbOpenHelper.getWritableDatabase();
+        return dbOpenHelper.getWritableDatabase("password");
     }
 
     private SQLiteDatabase readableDatabase() {
-        return dbOpenHelper.getReadableDatabase();
+        return dbOpenHelper.getReadableDatabase("password");
     }
 }

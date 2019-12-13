@@ -29,8 +29,9 @@
 package org.hisp.dhis.android.core.arch.db.access.internal;
 
 import android.content.res.AssetManager;
-import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
+
+import net.sqlcipher.database.SQLiteDatabase;
 
 import java.io.IOException;
 import java.util.List;

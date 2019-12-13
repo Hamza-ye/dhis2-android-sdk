@@ -28,7 +28,7 @@
 
 package org.hisp.dhis.android.core.data.database.migrations;
 
-import android.database.sqlite.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.arch.db.access.DatabaseAdapter;
 import org.hisp.dhis.android.core.arch.db.access.DbOpenHelper;
@@ -106,9 +106,7 @@ public class DataBaseMigrationShould {
                         databaseVersion);
                 databaseInMemory.setVersion(databaseVersion);
             } else if (databaseInMemory.getVersion() > databaseVersion) {
-                dbOpenHelper.onDowngrade(databaseInMemory, databaseInMemory.getVersion(),
-                        databaseVersion);
-                databaseInMemory.setVersion(databaseVersion);
+                throw new IllegalStateException();
             }
         }
         return databaseAdapter;

@@ -28,7 +28,7 @@
 
 package org.hisp.dhis.android.core.data.database;
 
-import android.database.sqlite.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.arch.db.access.DbOpenHelper;
 import org.hisp.dhis.android.core.arch.db.access.internal.SqLiteTransaction;
@@ -54,7 +54,7 @@ public class SqLiteTransactionShould {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
 
-        when(dbOpenHelper.getWritableDatabase()).thenReturn(database);
+        when(dbOpenHelper.getWritableDatabase("password")).thenReturn(database);
 
         transaction = new SqLiteTransaction(dbOpenHelper);
     }

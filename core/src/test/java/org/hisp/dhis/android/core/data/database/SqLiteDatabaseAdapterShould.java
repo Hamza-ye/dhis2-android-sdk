@@ -28,7 +28,7 @@
 
 package org.hisp.dhis.android.core.data.database;
 
-import android.database.sqlite.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.arch.db.access.DbOpenHelper;
 import org.hisp.dhis.android.core.arch.db.access.internal.SqLiteDatabaseAdapter;
@@ -60,8 +60,8 @@ public class SqLiteDatabaseAdapterShould {
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
-        Mockito.when(dbOpenHelper.getWritableDatabase()).thenReturn(writableDatabase);
-        Mockito.when(dbOpenHelper.getReadableDatabase()).thenReturn(readableDatabase);
+        Mockito.when(dbOpenHelper.getWritableDatabase("password")).thenReturn(writableDatabase);
+        Mockito.when(dbOpenHelper.getReadableDatabase("password")).thenReturn(readableDatabase);
         sqLiteDatabaseAdapter = new SqLiteDatabaseAdapter(dbOpenHelper);
     }
 

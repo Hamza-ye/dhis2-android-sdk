@@ -28,7 +28,7 @@
 
 package org.hisp.dhis.android.core.arch.db.access.internal;
 
-import android.database.sqlite.SQLiteDatabase;
+import net.sqlcipher.database.SQLiteDatabase;
 
 import org.hisp.dhis.android.core.arch.db.access.DbOpenHelper;
 import org.hisp.dhis.android.core.arch.db.access.Transaction;
@@ -96,7 +96,7 @@ public class SqLiteTransaction implements Transaction {
     }
 
     private SQLiteDatabase database() {
-        return dbOpenHelper.getWritableDatabase();
+        return dbOpenHelper.getWritableDatabase("password");
     }
 }
 
