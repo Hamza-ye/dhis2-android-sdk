@@ -173,15 +173,9 @@ public final class UserAuthenticateCallFactory {
     }
 
     private Completable loadDatabaseOnline(HttpUrl serverUrl, String username) {
-        return generalSettingCall.isDatabaseEncrypted()
-                .doOnSuccess(encrypt ->
-                        multiUserDatabaseManager.loadExistingChangingEncryptionIfRequiredOtherwiseCreateNew(
-                                serverUrl.toString(), username, encrypt))
-                .doOnError(error ->
-                        multiUserDatabaseManager.loadExistingKeepingEncryptionOtherwiseCreateNew(
-                                serverUrl.toString(), username, false))
-                .ignoreElement()
-                .onErrorComplete();
+        return Completable.fromAction(() ->
+                multiUserDatabaseManager.loadExistingChangingEncryptionIfRequiredOtherwiseCreateNew(
+                        serverUrl.toString(), username, true));
     }
 
     private D2Error noUserOfflineError() {

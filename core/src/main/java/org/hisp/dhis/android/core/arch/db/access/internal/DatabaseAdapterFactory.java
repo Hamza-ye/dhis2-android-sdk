@@ -80,6 +80,18 @@ public class DatabaseAdapterFactory {
         }
     }
 
+    @SuppressWarnings("PMD.EmptyCatchBlock")
+    public void createOrOpenDatabaseWithSQLCipher(DatabaseAdapter adapter, String databaseName, boolean encrypt) {
+        try {
+            ParentDatabaseAdapter parentDatabaseAdapter = (ParentDatabaseAdapter) adapter;
+            DatabaseAdapter internalAdapter = newInternalAdapterWithSQLCipher(databaseName, context, encrypt, BaseDatabaseOpenHelper.VERSION);
+            adaptersToPreventNotClosedError.add(internalAdapter);
+            parentDatabaseAdapter.setAdapter(internalAdapter);
+        } catch (ClassCastException cce) {
+            // This ensures tests that mock DatabaseAdapter pass
+        }
+    }
+
     public void createOrOpenDatabase(DatabaseAdapter adapter, String databaseName, boolean encrypt) {
         createOrOpenDatabase(adapter, databaseName, encrypt, BaseDatabaseOpenHelper.VERSION);
     }
@@ -110,6 +122,21 @@ public class DatabaseAdapterFactory {
             UnencryptedDatabaseOpenHelper openHelper = instantiateOpenHelper(databaseName, unencryptedOpenHelpers,
                     v -> new UnencryptedDatabaseOpenHelper(context, databaseName, version));
             return new UnencryptedDatabaseAdapter(openHelper.getWritableDatabase());
+        }
+    }
+
+    private DatabaseAdapter newInternalAdapterWithSQLCipher(String databaseName, Context context,
+                                                      boolean encrypt, int version) {
+        if (encrypt) {
+            EncryptedDatabaseOpenHelper openHelper = instantiateOpenHelper(databaseName, encryptedOpenHelpers,
+                    v -> new EncryptedDatabaseOpenHelper(context, databaseName, version));
+            String password = passwordManager.getPassword(databaseName);
+            return new EncryptedDatabaseAdapter(openHelper.getWritableDatabase(password));
+        } else {
+            EncryptedDatabaseOpenHelper openHelper = instantiateOpenHelper(databaseName, encryptedOpenHelpers,
+                    v -> new EncryptedDatabaseOpenHelper(context, databaseName, version));
+            String password = null;
+            return new EncryptedDatabaseAdapter(openHelper.getWritableDatabase(password));
         }
     }
 

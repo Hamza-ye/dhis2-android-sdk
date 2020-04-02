@@ -166,11 +166,7 @@ public class MetadataCall {
     }
 
     private Completable changeEncryptionIfRequired() {
-        return generalSettingCall.isDatabaseEncrypted()
-                .doOnSuccess(encrypt ->
-                        multiUserDatabaseManager.changeEncryptionIfRequired(credentialsSecureStore.get(), encrypt))
-                .ignoreElement()
-                .onErrorComplete();
+        return Completable.complete();
     }
 
     public void blockingDownload() {

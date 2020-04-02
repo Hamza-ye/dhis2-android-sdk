@@ -70,6 +70,11 @@ class UnencryptedDatabaseAdapter implements DatabaseAdapter {
     }
 
     @Override
+    public void rawExecSQL(String sql) {
+        database.execSQL(sql);
+    }
+
+    @Override
     public StatementWrapper compileStatement(String sql) {
         return new UnencryptedStatementWrapper(database.compileStatement(sql));
     }

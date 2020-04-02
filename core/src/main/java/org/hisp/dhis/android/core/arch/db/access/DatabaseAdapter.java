@@ -145,6 +145,8 @@ public interface DatabaseAdapter {
 
     void execSQL(String sql);
 
+    void rawExecSQL(String sql);
+
     void enableWriteAheadLogging();
 
     boolean isReady();

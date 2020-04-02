@@ -71,6 +71,11 @@ class EncryptedDatabaseAdapter implements DatabaseAdapter {
     }
 
     @Override
+    public void rawExecSQL(String sql) {
+        database.rawExecSQL(sql);
+    }
+
+    @Override
     public StatementWrapper compileStatement(String sql) {
         return new EncryptedStatementWrapper(database.compileStatement(sql));
     }

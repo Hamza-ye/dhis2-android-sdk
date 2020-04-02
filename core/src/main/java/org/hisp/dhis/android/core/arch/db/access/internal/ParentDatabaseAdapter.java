@@ -75,6 +75,11 @@ class ParentDatabaseAdapter implements DatabaseAdapter {
     }
 
     @Override
+    public void rawExecSQL(String sql) {
+        getAdapter().rawExecSQL(sql);
+    }
+
+    @Override
     public StatementWrapper compileStatement(String sql) {
         return getAdapter().compileStatement(sql);
     }

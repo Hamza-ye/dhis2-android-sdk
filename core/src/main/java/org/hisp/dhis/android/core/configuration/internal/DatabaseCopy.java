@@ -29,10 +29,13 @@
 package org.hisp.dhis.android.core.configuration.internal;
 
 import android.database.Cursor;
+import android.util.Log;
 
 import org.hisp.dhis.android.core.arch.api.executors.internal.RxAPICallExecutor;
 import org.hisp.dhis.android.core.arch.db.access.DatabaseAdapter;
 import org.hisp.dhis.android.core.arch.db.cursors.internal.ObjectFactory;
+import org.hisp.dhis.android.core.arch.db.stores.internal.IdentifiableObjectStore;
+import org.hisp.dhis.android.core.arch.db.stores.internal.ObjectStore;
 import org.hisp.dhis.android.core.arch.db.tableinfos.TableInfo;
 import org.hisp.dhis.android.core.category.Category;
 import org.hisp.dhis.android.core.category.CategoryCategoryComboLink;
@@ -201,8 +204,6 @@ import org.hisp.dhis.android.core.user.UserRole;
 import org.hisp.dhis.android.core.user.UserRoleTableInfo;
 import org.hisp.dhis.android.core.user.UserTableInfo;
 
-import java.util.concurrent.Callable;
-
 import javax.inject.Inject;
 
 import dagger.Reusable;
@@ -214,16 +215,52 @@ class DatabaseCopy {
 
     private final RxAPICallExecutor executor;
 
+    private final ObjectStore<User> userStore;
+
     private DatabaseAdapter adapterFrom;
     private DatabaseAdapter adapterTo;
 
+
     @Inject
-    DatabaseCopy(RxAPICallExecutor executor) {
+    DatabaseCopy(RxAPICallExecutor executor, IdentifiableObjectStore<User> userStore) {
         this.executor = executor;
+        this.userStore = userStore;
+    }
+
+    void encrypt(DatabaseAdapter plainTextDatabaseOpenedWithSQLCipher) {
+        executor.wrapObservableTransactionally(Observable.fromCallable(() -> {
+            long startMillis = System.currentTimeMillis();
+
+            plainTextDatabaseOpenedWithSQLCipher.rawExecSQL("ATTACH DATABASE 'encrypted.db' AS encrypted KEY 'testkey';");
+            plainTextDatabaseOpenedWithSQLCipher.rawExecSQL("SELECT sqlcipher_export('encrypted');");
+            plainTextDatabaseOpenedWithSQLCipher.rawExecSQL("DETACH DATABASE encrypted");
+
+            long endMillis = System.currentTimeMillis();
+
+            Log.e("COPY", "" + (endMillis - startMillis));
+
+            return new Unit();
+        }), true).blockingSubscribe();
+    }
+
+    void decrypt(DatabaseAdapter encryptedDatabaseOpenedWithSQLCipher) {
+        executor.wrapObservableTransactionally(Observable.fromCallable(() -> {
+            long startMillis = System.currentTimeMillis();
+
+            encryptedDatabaseOpenedWithSQLCipher.rawExecSQL("ATTACH DATABASE 'plaintext.db' AS plaintext KEY '';");
+            encryptedDatabaseOpenedWithSQLCipher.rawExecSQL("SELECT sqlcipher_export('plaintext');");
+            encryptedDatabaseOpenedWithSQLCipher.rawExecSQL("DETACH DATABASE plaintext;");
+
+            long endMillis = System.currentTimeMillis();
+
+            Log.e("COPY", "" + (endMillis - startMillis));
+
+            return new Unit();
+        }), true).blockingSubscribe();
     }
 
     void copyDatabase(DatabaseAdapter adapterFrom, DatabaseAdapter adapterTo) {
-        executor.wrapObservableTransactionally(Observable.fromCallable((Callable<Unit>) () -> {
+        executor.wrapObservableTransactionally(Observable.fromCallable(() -> {
             copyDatabaseInternal(adapterFrom, adapterTo);
             return new Unit();
         }), true).blockingSubscribe();
@@ -232,93 +269,17 @@ class DatabaseCopy {
     private void copyDatabaseInternal(DatabaseAdapter adapterFrom, DatabaseAdapter adapterTo) {
         this.adapterFrom = adapterFrom;
         this.adapterTo = adapterTo;
-        copyTable(UserTableInfo.TABLE_INFO, User::create);
-        copyTable(UserCredentialsTableInfo.TABLE_INFO, UserCredentials::create);
-        copyTable(OrganisationUnitTableInfo.TABLE_INFO, OrganisationUnit::create);
-        copyTable(OptionSetTableInfo.TABLE_INFO, OptionSet::create);
-        copyTable(OptionTableInfo.TABLE_INFO, Option::create);
-        copyTable(TrackedEntityTypeTableInfo.TABLE_INFO, TrackedEntityType::create);
-        copyTable(ProgramStageSectionTableInfo.TABLE_INFO, ProgramStageSection::create);
-        copyTable(ProgramRuleVariableTableInfo.TABLE_INFO, ProgramRuleVariable::create);
-        copyTable(ProgramTrackedEntityAttributeTableInfo.TABLE_INFO, ProgramTrackedEntityAttribute::create);
-        copyTable(ConstantTableInfo.TABLE_INFO, Constant::create);
-        copyTable(SystemInfoTableInfo.TABLE_INFO, SystemInfo::create);
-        copyTable(ProgramRuleTableInfo.TABLE_INFO, ProgramRule::create);
-        copyTable(ProgramIndicatorTableInfo.TABLE_INFO, ProgramIndicator::create);
-        copyTable(ResourceTableInfo.TABLE_INFO, Resource::create);
-        copyTable(OrganisationUnitProgramLinkTableInfo.TABLE_INFO, OrganisationUnitProgramLink::create);
-        copyTable(UserRoleTableInfo.TABLE_INFO, UserRole::create);
-        copyTable(ProgramStageSectionProgramIndicatorLinkTableInfo.TABLE_INFO,
-                ProgramStageSectionProgramIndicatorLink::create);
-        copyTable(CategoryTableInfo.TABLE_INFO, Category::create);
-        copyTable(CategoryOptionTableInfo.TABLE_INFO, CategoryOption::create);
-        copyTable(CategoryCategoryOptionLinkTableInfo.TABLE_INFO, CategoryCategoryOptionLink::create);
-        copyTable(CategoryComboTableInfo.TABLE_INFO, CategoryCombo::create);
-        copyTable(CategoryCategoryComboLinkTableInfo.TABLE_INFO, CategoryCategoryComboLink::create);
-        copyTable(CategoryOptionComboTableInfo.TABLE_INFO, CategoryOptionCombo::create);
-        copyTable(DataSetTableInfo.TABLE_INFO, DataSet::create);
-        copyTable(DataSetDataElementLinkTableInfo.TABLE_INFO, DataSetElement::create);
-        copyTable(IndicatorTableInfo.TABLE_INFO, Indicator::create);
-        copyTable(DataSetIndicatorLinkTableInfo.TABLE_INFO, DataSetIndicatorLink::create);
-        copyTable(PeriodTableInfo.TABLE_INFO, Period::create);
-        copyTable(ValueTypeDeviceRenderingTableInfo.TABLE_INFO, ValueTypeDeviceRendering::create);
-        copyTable(NoteTableInfo.TABLE_INFO, Note::create);
-        copyTable(LegendTableInfo.TABLE_INFO, Legend::create);
-        copyTable(LegendSetTableInfo.TABLE_INFO, LegendSet::create);
-        copyTable(ProgramIndicatorLegendSetLinkTableInfo.TABLE_INFO, ProgramIndicatorLegendSetLink::create);
-        copyTable(SystemSettingTableInfo.TABLE_INFO, SystemSetting::create);
-        copyTable(ProgramSectionAttributeLinkTableInfo.TABLE_INFO, ProgramSectionAttributeLink::create);
-        copyTable(TrackedEntityAttributeReservedValueTableInfo.TABLE_INFO,
-                TrackedEntityAttributeReservedValue::create);
-        copyTable(CategoryOptionComboCategoryOptionLinkTableInfo.TABLE_INFO,
-                CategoryOptionComboCategoryOptionLink::create);
-        copyTable(SectionTableInfo.TABLE_INFO, Section::create);
-        copyTable(SectionDataElementLinkTableInfo.TABLE_INFO, SectionDataElementLink::create);
-        copyTable(DataSetCompulsoryDataElementOperandLinkTableInfo.TABLE_INFO,
-                DataSetCompulsoryDataElementOperandLink::create);
-        copyTable(DataInputPeriodTableInfo.TABLE_INFO, DataInputPeriod::create);
-        copyTable(RelationshipConstraintTableInfo.TABLE_INFO, RelationshipConstraint::create);
-        copyTable(RelationshipItemTableInfo.TABLE_INFO, RelationshipItem::create);
-        copyTable(OrganisationUnitGroupTableInfo.TABLE_INFO, OrganisationUnitGroup::create);
-        copyTable(OrganisationUnitOrganisationUnitGroupLinkTableInfo.TABLE_INFO,
-                OrganisationUnitOrganisationUnitGroupLink::create);
-        copyTable(ProgramStageDataElementTableInfo.TABLE_INFO, ProgramStageDataElement::create);
-        copyTable(ProgramStageSectionDataElementLinkTableInfo.TABLE_INFO, ProgramStageSectionDataElementLink::create);
-        copyTable(DataElementOperandTableInfo.TABLE_INFO, DataElementOperand::create);
-        copyTable(IndicatorTypeTableInfo.TABLE_INFO, IndicatorType::create);
-        copyTable(ForeignKeyViolationTableInfo.TABLE_INFO, ForeignKeyViolation::create);
-        copyTable(D2ErrorTableInfo.TABLE_INFO, D2Error::create);
-        copyTable(AuthorityTableInfo.TABLE_INFO, Authority::create);
-        copyTable(TrackedEntityTypeAttributeTableInfo.TABLE_INFO, TrackedEntityTypeAttribute::create);
-        copyTable(RelationshipTableInfo.TABLE_INFO, Relationship::create);
-        copyTable(DataElementTableInfo.TABLE_INFO, DataElement::create);
-        copyTable(OptionGroupTableInfo.TABLE_INFO, OptionGroup::create);
-        copyTable(OptionGroupOptionLinkTableInfo.TABLE_INFO, OptionGroupOptionLink::create);
-        copyTable(ProgramRuleActionTableInfo.TABLE_INFO, ProgramRuleAction::create);
-        copyTable(OrganisationUnitLevelTableInfo.TABLE_INFO, OrganisationUnitLevel::create);
-        copyTable(ProgramSectionTableInfo.TABLE_INFO, ProgramSection::create);
-        copyTable(DataApprovalTableInfo.TABLE_INFO, DataApproval::create);
-        copyTable(TrackedEntityAttributeTableInfo.TABLE_INFO, TrackedEntityAttribute::create);
-        copyTable(TrackerImportConflictTableInfo.TABLE_INFO, TrackerImportConflict::create);
-        copyTable(DataSetOrganisationUnitLinkTableInfo.TABLE_INFO, DataSetOrganisationUnitLink::create);
-        copyTable(UserOrganisationUnitLinkTableInfo.TABLE_INFO, UserOrganisationUnitLink::create);
-        copyTable(ProgramOrganisationUnitLastUpdatedTableInfo.TABLE_INFO, ProgramOrganisationUnitLastUpdated::create);
-        copyTable(RelationshipTypeTableInfo.TABLE_INFO, RelationshipType::create);
-        copyTable(ProgramStageTableInfo.TABLE_INFO, ProgramStage::create);
-        copyTable(ProgramTableInfo.TABLE_INFO, Program::create);
-        copyTable(TrackedEntityInstanceTableInfo.TABLE_INFO, TrackedEntityInstance::create);
-        copyTable(EnrollmentTableInfo.TABLE_INFO, Enrollment::create);
-        copyTable(EventTableInfo.TABLE_INFO, Event::create);
-        copyTable(DataValueTableInfo.TABLE_INFO, DataValue::create);
-        copyTable(TrackedEntityDataValueTableInfo.TABLE_INFO, TrackedEntityDataValue::create);
-        copyTable(TrackedEntityAttributeValueTableInfo.TABLE_INFO, TrackedEntityAttributeValue::create);
-        copyTable(FileResourceTableInfo.TABLE_INFO, FileResource::create);
-        copyTable(DataSetCompleteRegistrationTableInfo.TABLE_INFO, DataSetCompleteRegistration::create);
-        copyTable(SectionGreyedFieldsLinkTableInfo.TABLE_INFO, SectionGreyedFieldsLink::create);
-        copyTable(AuthenticatedUserTableInfo.TABLE_INFO, AuthenticatedUser::create);
-        copyTable(GeneralSettingTableInfo.TABLE_INFO, GeneralSettings::create);
-        copyTable(DataSetSettingTableInfo.TABLE_INFO, DataSetSetting::create);
-        copyTable(ProgramSettingTableInfo.TABLE_INFO, ProgramSetting::create);
+
+        long startMillis = System.currentTimeMillis();
+
+        adapterTo.execSQL("ATTACH DATABASE 'encrypted.db' AS encrypted KEY 'testkey';");
+        adapterTo.execSQL("SELECT sqlcipher_export('encrypted');");
+        adapterTo.execSQL("DETACH DATABASE encrypted");
+
+        long endMillis = System.currentTimeMillis();
+
+        Log.e("COPY", "" + (endMillis - startMillis));
+
     }
 
     private <O extends CoreObject> void copyTable(TableInfo tableInfo, ObjectFactory<O> objectFactory) {
@@ -328,6 +289,18 @@ class DatabaseCopy {
                 do {
                     adapterTo.insert(tableInfo.name(), null,
                             objectFactory.fromCursor(cursor).toContentValues());
+                }
+                while (cursor.moveToNext());
+            }
+        }
+    }
+
+    private <O extends CoreObject> void copyTable(TableInfo tableInfo, ObjectFactory<O> objectFactory, ObjectStore<O> store) {
+        try (Cursor cursor = adapterFrom.rawQuery("SELECT * FROM " + tableInfo.name())) {
+            if (cursor.getCount() > 0) {
+                cursor.moveToFirst();
+                do {
+                    store.insert(objectFactory.fromCursor(cursor));
                 }
                 while (cursor.moveToNext());
             }

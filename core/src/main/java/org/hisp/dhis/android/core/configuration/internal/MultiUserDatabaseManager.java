@@ -140,8 +140,14 @@ public class MultiUserDatabaseManager {
             Log.w(MultiUserDatabaseManager.class.getName(),
                     "Encryption value changed for " + existingUserConfiguration.username() +  ": " + encrypt);
             DatabaseAdapter auxOldParentDatabaseAdapter = databaseAdapterFactory.newParentDatabaseAdapter();
-            databaseAdapterFactory.createOrOpenDatabase(auxOldParentDatabaseAdapter, existingUserConfiguration);
-            databaseCopy.copyDatabase(auxOldParentDatabaseAdapter, databaseAdapter);
+
+            if (encrypt) {
+                databaseAdapterFactory.createOrOpenDatabaseWithSQLCipher(auxOldParentDatabaseAdapter,
+                        existingUserConfiguration.databaseName(), existingUserConfiguration.encrypted());
+                databaseCopy.encrypt(auxOldParentDatabaseAdapter);
+            } else {
+                databaseCopy.decrypt(databaseAdapter);
+            }
             databaseAdapterFactory.deleteDatabase(existingUserConfiguration);
         }
     }
