@@ -40,7 +40,9 @@ import org.hisp.dhis.android.core.common.CoreObject;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ReadableStoreImpl<M extends CoreObject> implements ReadableStore<M> {
     protected final DatabaseAdapter databaseAdapter;
@@ -81,7 +83,7 @@ public class ReadableStoreImpl<M extends CoreObject> implements ReadableStore<M>
 
     @Override
     public M selectOneOrderedBy(String orderingColumName, SQLOrderType orderingType) {
-        Cursor cursor = databaseAdapter.query(builder.selectOneOrderedBy(orderingColumName, orderingType));
+        Cursor cursor = databaseAdapter.rawQuery(builder.selectOneOrderedBy(orderingColumName, orderingType));
         return getFirstFromCursor(cursor);
     }
 
@@ -89,7 +91,7 @@ public class ReadableStoreImpl<M extends CoreObject> implements ReadableStore<M>
 
     @Override
     public List<M> selectRawQuery(String sqlRawQuery) {
-        Cursor cursor = databaseAdapter.query(sqlRawQuery);
+        Cursor cursor = databaseAdapter.rawQuery(sqlRawQuery);
         List<M> list = new ArrayList<>();
         addObjectsToCollection(cursor, list);
         return list;
@@ -97,13 +99,13 @@ public class ReadableStoreImpl<M extends CoreObject> implements ReadableStore<M>
 
     @Override
     public M selectOneWhere(@NonNull String whereClause) {
-        Cursor cursor = databaseAdapter.query(builder.selectWhere(whereClause, 1));
+        Cursor cursor = databaseAdapter.rawQuery(builder.selectWhere(whereClause, 1));
         return getFirstFromCursor(cursor);
     }
 
     @Override
     public M selectFirst() {
-        Cursor cursor = databaseAdapter.query(builder.selectAll());
+        Cursor cursor = databaseAdapter.rawQuery(builder.selectAll());
         return getFirstFromCursor(cursor);
     }
 
@@ -122,12 +124,29 @@ public class ReadableStoreImpl<M extends CoreObject> implements ReadableStore<M>
 
     @Override
     public int count() {
-        return processCount(databaseAdapter.query(builder.count()));
+        return processCount(databaseAdapter.rawQuery(builder.count()));
     }
 
     @Override
     public int countWhere(@NonNull String whereClause) {
-        return processCount(databaseAdapter.query(builder.countWhere(whereClause)));
+        return processCount(databaseAdapter.rawQuery(builder.countWhere(whereClause)));
+    }
+
+    @Override
+    public Map<String, Integer> groupAndGetCountBy(@NonNull String column) {
+        Map<String, Integer> result = new HashMap<>();
+        try(Cursor cursor = databaseAdapter.rawQuery(builder.countAndGroupBy(column))) {
+            if (cursor.getCount() > 0) {
+                cursor.moveToFirst();
+                do {
+                    String columnValue = cursor.getString(0);
+                    Integer countValue = cursor.getInt(1);
+                    result.put(columnValue, countValue);
+                }
+                while (cursor.moveToNext());
+            }
+        }
+        return result;
     }
 
     protected int processCount(Cursor cursor) {

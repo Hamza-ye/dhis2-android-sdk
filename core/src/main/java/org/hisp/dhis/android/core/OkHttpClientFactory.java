@@ -33,10 +33,11 @@ import android.util.Log;
 
 import org.hisp.dhis.android.BuildConfig;
 import org.hisp.dhis.android.core.arch.api.authentication.internal.BasicAuthenticatorFactory;
-import org.hisp.dhis.android.core.arch.api.internal.ServerURLVersionRedirectionInterceptor;
-import org.hisp.dhis.android.core.arch.api.internal.PreventURLDecodeInterceptor;
 import org.hisp.dhis.android.core.arch.api.internal.DynamicServerURLInterceptor;
-import org.hisp.dhis.android.core.arch.storage.internal.CredentialsSecureStore;
+import org.hisp.dhis.android.core.arch.api.internal.PreventURLDecodeInterceptor;
+import org.hisp.dhis.android.core.arch.api.internal.ServerURLVersionRedirectionInterceptor;
+import org.hisp.dhis.android.core.arch.storage.internal.Credentials;
+import org.hisp.dhis.android.core.arch.storage.internal.ObjectKeyValueStore;
 
 import java.security.KeyStore;
 import java.util.ArrayList;
@@ -58,7 +59,8 @@ import okhttp3.TlsVersion;
 
 final class OkHttpClientFactory {
 
-    static OkHttpClient okHttpClient(D2Configuration d2Configuration, CredentialsSecureStore credentialsSecureStore) {
+    static OkHttpClient okHttpClient(D2Configuration d2Configuration,
+                                     ObjectKeyValueStore<Credentials> credentialsSecureStore) {
 
         OkHttpClient.Builder client = new OkHttpClient.Builder()
                 .addInterceptor(new DynamicServerURLInterceptor())
@@ -102,7 +104,7 @@ final class OkHttpClientFactory {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             try {
 
-                SSLContext sc = SSLContext.getInstance("TLS" /*"TLSv1.2"*/);
+                SSLContext sc = SSLContext.getInstance(TlsVersion.TLS_1_2.javaName());
                 sc.init(null, null, null);
 
                 TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(

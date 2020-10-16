@@ -48,10 +48,9 @@ import org.hisp.dhis.android.core.user.UserOrganisationUnitLink;
 import org.hisp.dhis.android.core.user.internal.UserOrganisationUnitLinkHelper;
 import org.hisp.dhis.android.core.user.internal.UserOrganisationUnitLinkStoreImpl;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 @SuppressWarnings({"PMD.ExcessiveImports"})
 class OrganisationUnitHandlerImpl extends IdentifiableHandlerImpl<OrganisationUnit>
@@ -64,20 +63,18 @@ class OrganisationUnitHandlerImpl extends IdentifiableHandlerImpl<OrganisationUn
             organisationUnitGroupLinkHandler;
 
     private User user;
-    private Set<String> programUids;
-    private Set<String> dataSetUids;
     private OrganisationUnit.Scope scope;
 
     OrganisationUnitHandlerImpl(@NonNull IdentifiableObjectStore<OrganisationUnit> organisationUnitStore,
                                 @NonNull LinkHandler<OrganisationUnit, UserOrganisationUnitLink>
                                         userOrganisationUnitLinkHandler,
                                 @NonNull LinkHandler<ObjectWithUid, OrganisationUnitProgramLink>
-                                    organisationUnitProgramLinkHandler,
+                                        organisationUnitProgramLinkHandler,
                                 @NonNull LinkHandler<ObjectWithUid, DataSetOrganisationUnitLink>
-                                    dataSetOrganisationUnitLinkHandler,
+                                        dataSetOrganisationUnitLinkHandler,
                                 @NonNull Handler<OrganisationUnitGroup> organisationUnitGroupHandler,
                                 @NonNull LinkHandler<OrganisationUnitGroup,
-                                                                        OrganisationUnitOrganisationUnitGroupLink>
+                                        OrganisationUnitOrganisationUnitGroupLink>
                                         organisationUnitGroupLinkHandler) {
 
         super(organisationUnitStore);
@@ -97,9 +94,7 @@ class OrganisationUnitHandlerImpl extends IdentifiableHandlerImpl<OrganisationUn
     }
 
     @Override
-    public void setData(Set<String> programUids, Set<String> dataSetUids, User user, OrganisationUnit.Scope scope) {
-        this.programUids = programUids;
-        this.dataSetUids = dataSetUids;
+    public void setData(User user, OrganisationUnit.Scope scope) {
         this.user = user;
         this.scope = scope;
     }
@@ -115,15 +110,8 @@ class OrganisationUnitHandlerImpl extends IdentifiableHandlerImpl<OrganisationUn
 
     private void addOrganisationUnitProgramLink(@NonNull OrganisationUnit organisationUnit) {
         List<ObjectWithUid> orgUnitPrograms = organisationUnit.programs();
-        if (orgUnitPrograms != null && programUids != null) {
-            List<ObjectWithUid> programsToAdd = new ArrayList<>();
-            for (ObjectWithUid program : orgUnitPrograms) {
-                if (programUids.contains(program.uid())) {
-                    programsToAdd.add(program);
-                }
-            }
-
-            organisationUnitProgramLinkHandler.handleMany(organisationUnit.uid(), programsToAdd,
+        if (orgUnitPrograms != null) {
+            organisationUnitProgramLinkHandler.handleMany(organisationUnit.uid(), orgUnitPrograms,
                     program -> OrganisationUnitProgramLink.builder()
                             .organisationUnit(organisationUnit.uid()).program(program.uid()).build());
         }
@@ -131,15 +119,9 @@ class OrganisationUnitHandlerImpl extends IdentifiableHandlerImpl<OrganisationUn
 
     private void addOrganisationUnitDataSetLink(@NonNull OrganisationUnit organisationUnit) {
         List<ObjectWithUid> orgUnitDataSets = organisationUnit.dataSets();
-        if (orgUnitDataSets != null && dataSetUids != null) {
-            List<ObjectWithUid> dataSetsToAdd = new ArrayList<>();
-            for (ObjectWithUid dataSet : orgUnitDataSets) {
-                if (dataSetUids.contains(dataSet.uid())) {
-                    dataSetsToAdd.add(dataSet);
-                }
-            }
+        if (orgUnitDataSets != null) {
 
-            dataSetOrganisationUnitLinkHandler.handleMany(organisationUnit.uid(), dataSetsToAdd,
+            dataSetOrganisationUnitLinkHandler.handleMany(organisationUnit.uid(), orgUnitDataSets,
                     dataSet -> DataSetOrganisationUnitLink.builder()
                             .dataSet(dataSet.uid()).organisationUnit(organisationUnit.uid()).build());
         }
@@ -171,6 +153,13 @@ class OrganisationUnitHandlerImpl extends IdentifiableHandlerImpl<OrganisationUn
                         .root(UserOrganisationUnitLinkHelper.isRoot(scope, user, orgUnit))
                         .build()
         );
+    }
+
+    @Override
+    public void addUserOrganisationUnitLinks(@NonNull Collection<OrganisationUnit> organisationUnits) {
+        for (OrganisationUnit organisationUnit : organisationUnits) {
+            addUserOrganisationUnitLink(organisationUnit);
+        }
     }
 
     public static OrganisationUnitHandler create(DatabaseAdapter databaseAdapter) {

@@ -46,11 +46,12 @@ import org.hisp.dhis.android.core.organisationunit.OrganisationUnitModule;
 import org.hisp.dhis.android.core.period.PeriodModule;
 import org.hisp.dhis.android.core.program.ProgramModule;
 import org.hisp.dhis.android.core.relationship.RelationshipModule;
-import org.hisp.dhis.android.core.settings.SystemSettingModule;
+import org.hisp.dhis.android.core.settings.SettingModule;
 import org.hisp.dhis.android.core.sms.SmsModule;
 import org.hisp.dhis.android.core.systeminfo.SystemInfoModule;
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityModule;
 import org.hisp.dhis.android.core.user.UserModule;
+import org.hisp.dhis.android.core.validation.ValidationModule;
 
 import javax.inject.Inject;
 
@@ -77,37 +78,39 @@ public final class D2Modules {
     public final ProgramModule program;
     public final OrganisationUnitModule organisationUnit;
     public final SystemInfoModule systemInfo;
-    public final SystemSettingModule systemSetting;
+    public final SettingModule settingModule;
     public final PeriodModule periodModule;
     public final RelationshipModule relationship;
     public final TrackedEntityModule trackedEntity;
     public final UserModule user;
+    public final ValidationModule validation;
     public final SmsModule sms;
 
     @Inject
     public D2Modules(CategoryModule category,
-              ConstantModule constant,
-              DataElementModule dataElement,
-              DataSetModule dataSet,
-              OptionModule option,
-              DataValueModule dataValue,
-              EnrollmentModule enrollment,
-              EventModule event,
-              FileResourceModule fileResource,
-              ImportModule importModule,
-              IndicatorModule indicator,
-              LegendSetModule legendSet,
-              MaintenanceModule maintenance,
-              NoteModule note,
-              ProgramModule program,
-              OrganisationUnitModule organisationUnit,
-              SystemInfoModule systemInfo,
-              SystemSettingModule systemSetting,
-              PeriodModule periodModule,
-              RelationshipModule relationship,
-              TrackedEntityModule trackedEntity,
-              UserModule user,
-              SmsModule sms) {
+                     ConstantModule constant,
+                     DataElementModule dataElement,
+                     DataSetModule dataSet,
+                     OptionModule option,
+                     DataValueModule dataValue,
+                     EnrollmentModule enrollment,
+                     EventModule event,
+                     FileResourceModule fileResource,
+                     ImportModule importModule,
+                     IndicatorModule indicator,
+                     LegendSetModule legendSet,
+                     MaintenanceModule maintenance,
+                     NoteModule note,
+                     ProgramModule program,
+                     OrganisationUnitModule organisationUnit,
+                     SystemInfoModule systemInfo,
+                     SettingModule settingModule,
+                     PeriodModule periodModule,
+                     RelationshipModule relationship,
+                     TrackedEntityModule trackedEntity,
+                     UserModule user,
+                     ValidationModule validation,
+                     SmsModule sms) {
         this.category = category;
         this.constant = constant;
         this.dataElement = dataElement;
@@ -125,11 +128,12 @@ public final class D2Modules {
         this.program = program;
         this.organisationUnit = organisationUnit;
         this.systemInfo = systemInfo;
-        this.systemSetting = systemSetting;
+        this.settingModule = settingModule;
         this.periodModule = periodModule;
         this.relationship = relationship;
         this.trackedEntity = trackedEntity;
         this.user = user;
+        this.validation = validation;
         this.sms = sms;
     }
 }

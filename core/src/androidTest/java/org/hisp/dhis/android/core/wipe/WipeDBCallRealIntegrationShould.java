@@ -28,6 +28,7 @@
 
 package org.hisp.dhis.android.core.wipe;
 
+import org.hisp.dhis.android.core.BaseRealIntegrationTest;
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.D2Factory;
 import org.hisp.dhis.android.core.data.database.DatabaseAssert;
@@ -35,7 +36,6 @@ import org.hisp.dhis.android.core.event.Event;
 import org.hisp.dhis.android.core.event.internal.EventCallFactory;
 import org.hisp.dhis.android.core.trackedentity.internal.TrackedEntityInstanceStore;
 import org.hisp.dhis.android.core.trackedentity.internal.TrackedEntityInstanceStoreImpl;
-import org.hisp.dhis.android.core.utils.integration.real.BaseRealIntegrationTest;
 import org.junit.Before;
 
 import java.io.IOException;
@@ -61,11 +61,11 @@ public class WipeDBCallRealIntegrationShould extends BaseRealIntegrationTest {
 
         d2.metadataModule().blockingDownload();
 
-        DatabaseAssert.assertThatDatabase(databaseAdapter()).isNotEmpty();
+        DatabaseAssert.assertThatDatabase(d2.databaseAdapter()).isNotEmpty();
 
         d2.wipeModule().wipeEverything();
 
-        DatabaseAssert.assertThatDatabase(databaseAdapter()).isEmpty();
+        DatabaseAssert.assertThatDatabase(d2.databaseAdapter()).isEmpty();
     }
 
     //@Test
@@ -78,11 +78,11 @@ public class WipeDBCallRealIntegrationShould extends BaseRealIntegrationTest {
 
         eventCall.call();
 
-        DatabaseAssert.assertThatDatabase(databaseAdapter()).isNotEmpty();
+        DatabaseAssert.assertThatDatabase(d2.databaseAdapter()).isNotEmpty();
 
         d2.wipeModule().wipeEverything();
 
-        DatabaseAssert.assertThatDatabase(databaseAdapter()).isEmpty();
+        DatabaseAssert.assertThatDatabase(d2.databaseAdapter()).isEmpty();
     }
 
     //@Test
@@ -91,11 +91,11 @@ public class WipeDBCallRealIntegrationShould extends BaseRealIntegrationTest {
 
         d2.metadataModule().blockingDownload();
 
-        DatabaseAssert.assertThatDatabase(databaseAdapter()).isNotEmpty();
+        DatabaseAssert.assertThatDatabase(d2.databaseAdapter()).isNotEmpty();
 
         d2.wipeModule().wipeMetadata();
 
-        DatabaseAssert.assertThatDatabase(databaseAdapter()).isEmpty();
+        DatabaseAssert.assertThatDatabase(d2.databaseAdapter()).isEmpty();
     }
 
     //@Test
@@ -107,7 +107,7 @@ public class WipeDBCallRealIntegrationShould extends BaseRealIntegrationTest {
         d2.trackedEntityModule().trackedEntityInstanceDownloader().limit(5).blockingDownload();
 
         TrackedEntityInstanceStore trackedEntityInstanceStore =
-                TrackedEntityInstanceStoreImpl.create(databaseAdapter());
+                TrackedEntityInstanceStoreImpl.create(d2.databaseAdapter());
 
         boolean hasTrackedEntities = trackedEntityInstanceStore.count() > 0;
 

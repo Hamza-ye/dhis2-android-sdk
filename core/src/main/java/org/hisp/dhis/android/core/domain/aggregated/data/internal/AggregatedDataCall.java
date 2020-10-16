@@ -28,10 +28,13 @@
 
 package org.hisp.dhis.android.core.domain.aggregated.data.internal;
 
+import androidx.annotation.NonNull;
+
 import org.hisp.dhis.android.core.arch.api.executors.internal.RxAPICallExecutor;
 import org.hisp.dhis.android.core.arch.call.D2Progress;
 import org.hisp.dhis.android.core.arch.call.factories.internal.QueryCallFactory;
 import org.hisp.dhis.android.core.arch.call.internal.D2ProgressManager;
+import org.hisp.dhis.android.core.arch.db.stores.internal.ObjectWithoutUidStore;
 import org.hisp.dhis.android.core.arch.helpers.CollectionsHelper;
 import org.hisp.dhis.android.core.arch.helpers.UidsHelper;
 import org.hisp.dhis.android.core.arch.repositories.collection.ReadOnlyWithDownloadObjectRepository;
@@ -40,33 +43,28 @@ import org.hisp.dhis.android.core.category.internal.CategoryOptionComboStore;
 import org.hisp.dhis.android.core.dataapproval.DataApproval;
 import org.hisp.dhis.android.core.dataapproval.internal.DataApprovalQuery;
 import org.hisp.dhis.android.core.dataset.DataSet;
-import org.hisp.dhis.android.core.dataset.DataSetCollectionRepository;
 import org.hisp.dhis.android.core.dataset.DataSetCompleteRegistration;
 import org.hisp.dhis.android.core.dataset.internal.DataSetCompleteRegistrationQuery;
 import org.hisp.dhis.android.core.datavalue.DataValue;
 import org.hisp.dhis.android.core.datavalue.internal.DataValueQuery;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
-import org.hisp.dhis.android.core.period.Period;
-import org.hisp.dhis.android.core.period.PeriodType;
-import org.hisp.dhis.android.core.period.internal.PeriodForDataSetManager;
+import org.hisp.dhis.android.core.resource.internal.ResourceHandler;
 import org.hisp.dhis.android.core.systeminfo.DHISVersionManager;
 import org.hisp.dhis.android.core.systeminfo.SystemInfo;
-import org.hisp.dhis.android.core.user.internal.UserOrganisationUnitLinkStore;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import javax.inject.Inject;
 
-import androidx.annotation.NonNull;
+import dagger.Reusable;
 import io.reactivex.Observable;
 import io.reactivex.Single;
 
-@SuppressWarnings("PMD.ExcessiveImports")
+@Reusable
+@SuppressWarnings({"PMD.ExcessiveImports"})
 final class AggregatedDataCall {
 
     private final ReadOnlyWithDownloadObjectRepository<SystemInfo> systemInfoRepository;
@@ -75,12 +73,13 @@ final class AggregatedDataCall {
     private final QueryCallFactory<DataSetCompleteRegistration,
             DataSetCompleteRegistrationQuery> dataSetCompleteRegistrationCallFactory;
     private final QueryCallFactory<DataApproval, DataApprovalQuery> dataApprovalCallFactory;
-    private final UserOrganisationUnitLinkStore organisationUnitStore;
     private final CategoryOptionComboStore categoryOptionComboStore;
     private final RxAPICallExecutor rxCallExecutor;
+    private final ObjectWithoutUidStore<AggregatedDataSync> aggregatedDataSyncStore;
+    private final AggregatedDataCallBundleFactory aggregatedDataCallBundleFactory;
+    private final ResourceHandler resourceHandler;
+    private final AggregatedDataSyncHashHelper hashHelper;
 
-    private final DataSetCollectionRepository dataSetCollectionRepository;
-    private final PeriodForDataSetManager periodManager;
 
     @Inject
     AggregatedDataCall(@NonNull ReadOnlyWithDownloadObjectRepository<SystemInfo> systemInfoRepository,
@@ -89,22 +88,24 @@ final class AggregatedDataCall {
                        @NonNull QueryCallFactory<DataSetCompleteRegistration, DataSetCompleteRegistrationQuery>
                                dataSetCompleteRegistrationCallFactory,
                        @NonNull QueryCallFactory<DataApproval, DataApprovalQuery> dataApprovalCallFactory,
-                       @NonNull UserOrganisationUnitLinkStore organisationUnitStore,
                        @NonNull CategoryOptionComboStore categoryOptionComboStore,
                        @NonNull RxAPICallExecutor rxCallExecutor,
-                       @NonNull DataSetCollectionRepository dataSetCollectionRepository,
-                       @NonNull PeriodForDataSetManager periodManager) {
+                       @NonNull ObjectWithoutUidStore<AggregatedDataSync> aggregatedDataSyncStore,
+                       @NonNull AggregatedDataCallBundleFactory aggregatedDataCallBundleFactory,
+                       @NonNull ResourceHandler resourceHandler,
+                       @NonNull AggregatedDataSyncHashHelper hashHelper) {
         this.systemInfoRepository = systemInfoRepository;
         this.dhisVersionManager = dhisVersionManager;
         this.dataValueCallFactory = dataValueCallFactory;
         this.dataSetCompleteRegistrationCallFactory = dataSetCompleteRegistrationCallFactory;
         this.dataApprovalCallFactory = dataApprovalCallFactory;
-        this.organisationUnitStore = organisationUnitStore;
         this.categoryOptionComboStore = categoryOptionComboStore;
         this.rxCallExecutor = rxCallExecutor;
+        this.aggregatedDataSyncStore = aggregatedDataSyncStore;
 
-        this.dataSetCollectionRepository = dataSetCollectionRepository;
-        this.periodManager = periodManager;
+        this.aggregatedDataCallBundleFactory = aggregatedDataCallBundleFactory;
+        this.resourceHandler = resourceHandler;
+        this.hashHelper = hashHelper;
     }
 
     Observable<D2Progress> download() {
@@ -118,38 +119,27 @@ final class AggregatedDataCall {
 
     private Observable<D2Progress> selectDataSetsAndDownload(D2ProgressManager progressManager,
                                                              D2Progress systemInfoProgress) {
-        return Observable.fromArray(PeriodType.values()).flatMap(periodType ->
-                dataSetCollectionRepository.byPeriodType().eq(periodType).get().flatMapObservable(dataSets -> {
-                    if (dataSets.isEmpty()) {
-                        return Observable.empty();
-                    } else {
-                        List<Period> periods = periodManager.getPeriodsForDataSets(periodType, dataSets);
-                        List<String> periodIds = selectPeriodIds(periods);
-                        return downloadInternal(dataSets, periodIds, progressManager, systemInfoProgress);
-                    }
-                }));
+        return Observable
+                .fromIterable(aggregatedDataCallBundleFactory.getBundles())
+                .flatMap(bundle ->
+                        downloadInternal(bundle, progressManager, systemInfoProgress)
+                );
     }
 
-    private Observable<D2Progress> downloadInternal(List<DataSet> dataSets,
-                                                    List<String> periodIds,
+    private Observable<D2Progress> downloadInternal(AggregatedDataCallBundle bundle,
                                                     D2ProgressManager progressManager,
                                                     D2Progress systemInfoProgress) {
-        List<String> organisationUnitUids = Collections.unmodifiableList(
-                organisationUnitStore.queryRootCaptureOrganisationUnitUids());
-
-        List<String> dataSetUids
-                = Collections.unmodifiableList(UidsHelper.getUidsList(dataSets));
-
-        DataValueQuery dataValueQuery = DataValueQuery.create(dataSetUids, periodIds, organisationUnitUids);
+        DataValueQuery dataValueQuery = DataValueQuery.create(bundle);
 
         Single<D2Progress> dataValueSingle = Single.fromCallable(dataValueCallFactory.create(dataValueQuery))
                 .map(dataValues -> progressManager.increaseProgress(DataValue.class, false));
 
         DataSetCompleteRegistrationQuery dataSetCompleteRegistrationQuery =
-                DataSetCompleteRegistrationQuery.create(dataSetUids, periodIds, organisationUnitUids);
+                DataSetCompleteRegistrationQuery.create(UidsHelper.getUids(bundle.dataSets()),
+                        bundle.periodIds(), bundle.rootOrganisationUnitUids(), bundle.key().lastUpdatedStr());
 
         Single<D2Progress> dataSetCompleteRegistrationSingle = Single.fromCallable(
-                dataSetCompleteRegistrationCallFactory.create(dataSetCompleteRegistrationQuery)).map(dataValues ->
+                dataSetCompleteRegistrationCallFactory.create(dataSetCompleteRegistrationQuery)).map(dscr ->
                 progressManager.increaseProgress(DataSetCompleteRegistration.class, false));
 
 
@@ -161,20 +151,41 @@ final class AggregatedDataCall {
         }};
 
         if (!dhisVersionManager.is2_29()) {
-            Single<D2Progress> approvalSingle = getApprovalSingle(dataSets, periodIds, progressManager);
+            Single<D2Progress> approvalSingle = getApprovalSingle(bundle, progressManager);
             if (approvalSingle != null) {
                 list.add(approvalSingle);
             }
         }
 
+        list.add(updateAggregatedDataSync(bundle, progressManager));
+
         return Single.merge(list).toObservable();
     }
 
-    private Single<D2Progress> getApprovalSingle(List<DataSet> dataSets, List<String> periodIds,
-                                                     D2ProgressManager progressManager) {
+    private Single<D2Progress> updateAggregatedDataSync(AggregatedDataCallBundle bundle,
+                                                        D2ProgressManager progressManager) {
+        return Single.fromCallable(() -> {
+            for (DataSet dataSet : bundle.dataSets()) {
+                aggregatedDataSyncStore.updateOrInsertWhere(AggregatedDataSync.builder()
+                        .dataSet(dataSet.uid())
+                        .periodType(dataSet.periodType())
+                        .pastPeriods(bundle.key().pastPeriods())
+                        .futurePeriods(dataSet.openFuturePeriods())
+                        .dataElementsHash(hashHelper.getDataSetDataElementsHash(dataSet))
+                        .organisationUnitsHash(bundle.allOrganisationUnitUidsSet().hashCode())
+                        .lastUpdated(resourceHandler.getServerDate())
+                        .build()
+                );
+            }
+            return progressManager.increaseProgress(AggregatedDataSync.class, false);
+        });
+    }
+
+    private Single<D2Progress> getApprovalSingle(AggregatedDataCallBundle bundle,
+                                                 D2ProgressManager progressManager) {
         List<DataSet> dataSetsWithWorkflow = new ArrayList<>();
         Set<String> workflowUids = new HashSet<>();
-        for (DataSet ds : dataSets) {
+        for (DataSet ds : bundle.dataSets()) {
             if (ds.workflow() != null) {
                 dataSetsWithWorkflow.add(ds);
                 workflowUids.add(ds.workflow().uid());
@@ -185,26 +196,15 @@ final class AggregatedDataCall {
             return null;
         } else {
             Set<String> attributeOptionComboUids = getAttributeOptionCombosUidsFrom(dataSetsWithWorkflow);
-            List<String> organisationUnitsUids = organisationUnitStore.queryOrganisationUnitUidsByScope(
-                    OrganisationUnit.Scope.SCOPE_DATA_CAPTURE);
-
 
             DataApprovalQuery dataApprovalQuery = DataApprovalQuery.create(workflowUids,
-                    organisationUnitsUids, periodIds, attributeOptionComboUids);
+                    bundle.allOrganisationUnitUidsSet(), bundle.periodIds(), attributeOptionComboUids,
+                    bundle.key().lastUpdatedStr());
 
             return Single.fromCallable(
                     dataApprovalCallFactory.create(dataApprovalQuery)).map(dataApprovals ->
                     progressManager.increaseProgress(DataApproval.class, false));
         }
-    }
-
-    private List<String> selectPeriodIds(Collection<Period> periods) {
-        List<String> periodIds = new ArrayList<>(periods.size());
-
-        for (Period period : periods) {
-            periodIds.add(period.periodId());
-        }
-        return periodIds;
     }
 
     private Set<String> getAttributeOptionCombosUidsFrom(Collection<DataSet> dataSetsWithWorkflow) {

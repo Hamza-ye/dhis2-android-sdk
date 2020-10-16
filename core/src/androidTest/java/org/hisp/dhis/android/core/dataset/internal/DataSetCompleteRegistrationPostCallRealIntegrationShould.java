@@ -28,12 +28,12 @@
 
 package org.hisp.dhis.android.core.dataset.internal;
 
+import org.hisp.dhis.android.core.BaseRealIntegrationTest;
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.D2Factory;
 import org.hisp.dhis.android.core.common.State;
 import org.hisp.dhis.android.core.dataset.DataSetCompleteRegistration;
 import org.hisp.dhis.android.core.dataset.DataSetCompleteRegistrationCollectionRepository;
-import org.hisp.dhis.android.core.utils.integration.real.BaseRealIntegrationTest;
 import org.junit.Before;
 
 import java.io.IOException;
@@ -56,7 +56,7 @@ public class DataSetCompleteRegistrationPostCallRealIntegrationShould extends Ba
 
         d2 = D2Factory.forNewDatabase();
 
-        dataSetCompleteRegistrationStore = DataSetCompleteRegistrationStoreImpl.create(databaseAdapter());
+        dataSetCompleteRegistrationStore = DataSetCompleteRegistrationStoreImpl.create(d2.databaseAdapter());
     }
 
     // commented out since it is a flaky test that works against a real server.

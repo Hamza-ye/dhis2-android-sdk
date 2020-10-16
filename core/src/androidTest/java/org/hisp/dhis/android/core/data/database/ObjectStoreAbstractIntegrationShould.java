@@ -46,7 +46,7 @@ public abstract class ObjectStoreAbstractIntegrationShould<M extends CoreObject>
 
     final M object;
     private final ObjectStore<M> store;
-    private final TableInfo tableInfo;
+    protected final TableInfo tableInfo;
     private final DatabaseAdapter databaseAdapter;
 
     public ObjectStoreAbstractIntegrationShould(ObjectStore<M> store,
@@ -74,8 +74,7 @@ public abstract class ObjectStoreAbstractIntegrationShould<M extends CoreObject>
 
     @Test
     public void insert_as_content_values_and_select_first_object() {
-        long rowsInserted = databaseAdapter.database()
-                .insert(tableInfo.name(), null, object.toContentValues());
+        long rowsInserted = databaseAdapter.insert(tableInfo.name(), null, object.toContentValues());
         assertThat(rowsInserted).isEqualTo(1);
         M objectFromDb = store.selectFirst();
         assertEqualsIgnoreId(objectFromDb);

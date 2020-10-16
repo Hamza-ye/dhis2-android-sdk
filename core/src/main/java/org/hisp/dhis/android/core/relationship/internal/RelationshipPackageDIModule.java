@@ -28,7 +28,7 @@
 
 package org.hisp.dhis.android.core.relationship.internal;
 
-import org.hisp.dhis.android.core.arch.call.factories.internal.ListCallFactory;
+import org.hisp.dhis.android.core.arch.call.factories.internal.ListCall;
 import org.hisp.dhis.android.core.relationship.RelationshipModule;
 import org.hisp.dhis.android.core.relationship.RelationshipType;
 
@@ -47,7 +47,7 @@ public final class RelationshipPackageDIModule {
 
     @Provides
     @Reusable
-    ListCallFactory<RelationshipType> relationshipCallFactory(RelationshipTypeEndpointCallFactory impl) {
+    ListCall<RelationshipType> relationshipCall(RelationshipTypeCall impl) {
         return impl;
     }
 
@@ -55,6 +55,12 @@ public final class RelationshipPackageDIModule {
     @Reusable
     RelationshipTypeService relationshipTypeService(Retrofit retrofit) {
         return retrofit.create(RelationshipTypeService.class);
+    }
+
+    @Provides
+    @Reusable
+    RelationshipService relationshipService(Retrofit retrofit) {
+        return retrofit.create(RelationshipService.class);
     }
 
     @Provides

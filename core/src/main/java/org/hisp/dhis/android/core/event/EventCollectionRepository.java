@@ -47,6 +47,7 @@ import org.hisp.dhis.android.core.enrollment.EnrollmentTableInfo;
 import org.hisp.dhis.android.core.event.internal.EventFields;
 import org.hisp.dhis.android.core.event.internal.EventPostCall;
 import org.hisp.dhis.android.core.event.internal.EventStore;
+import org.hisp.dhis.android.core.organisationunit.OrganisationUnitTableInfo;
 
 import java.util.List;
 import java.util.Map;
@@ -183,8 +184,16 @@ public final class EventCollectionRepository
         );
     }
 
+    public StringFilterConnector<EventCollectionRepository> byAssignedUser() {
+        return cf.string(Columns.ASSIGNED_USER);
+    }
+
     public EventCollectionRepository withTrackedEntityDataValues() {
         return cf.withChild(EventFields.TRACKED_ENTITY_DATA_VALUES);
+    }
+
+    public EventCollectionRepository withNotes() {
+        return cf.withChild(EventFields.NOTES);
     }
 
     public EventCollectionRepository orderByEventDate(RepositoryScope.OrderByDirection direction) {
@@ -199,8 +208,39 @@ public final class EventCollectionRepository
         return cf.withOrderBy(Columns.COMPLETE_DATE, direction);
     }
 
+    public EventCollectionRepository orderByCreated(RepositoryScope.OrderByDirection direction) {
+        return cf.withOrderBy(Columns.CREATED, direction);
+    }
+
     public EventCollectionRepository orderByLastUpdated(RepositoryScope.OrderByDirection direction) {
         return cf.withOrderBy(Columns.LAST_UPDATED, direction);
+    }
+
+    public EventCollectionRepository orderByCreatedAtClient(RepositoryScope.OrderByDirection direction) {
+        return cf.withOrderBy(Columns.CREATED_AT_CLIENT, direction);
+    }
+
+    public EventCollectionRepository orderByLastUpdatedAtClient(RepositoryScope.OrderByDirection direction) {
+        return cf.withOrderBy(Columns.LAST_UPDATED_AT_CLIENT, direction);
+    }
+
+    public EventCollectionRepository orderByOrganisationUnitName(RepositoryScope.OrderByDirection direction) {
+        return cf.withExternalOrderBy(
+                OrganisationUnitTableInfo.TABLE_INFO.name(),
+                IdentifiableColumns.NAME,
+                IdentifiableColumns.UID,
+                Columns.ORGANISATION_UNIT,
+                direction);
+    }
+
+    public EventCollectionRepository orderByTimeline(RepositoryScope.OrderByDirection direction) {
+        return cf.withConditionalOrderBy(
+                Columns.STATUS,
+                String.format("IN ('%s', '%s', '%s')", EventStatus.ACTIVE, EventStatus.COMPLETED, EventStatus.VISITED),
+                Columns.EVENT_DATE,
+                Columns.DUE_DATE,
+                direction
+        );
     }
 
     public int countTrackedEntityInstances() {

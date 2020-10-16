@@ -28,8 +28,9 @@
 
 package org.hisp.dhis.android.core.arch.storage.internal;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
+import org.hisp.dhis.android.core.maintenance.D2Error;
 import org.hisp.dhis.android.core.utils.runner.D2JunitRunner;
 import org.junit.Before;
 import org.junit.Test;
@@ -40,20 +41,21 @@ import static com.google.common.truth.Truth.assertThat;
 @RunWith(D2JunitRunner.class)
 public class CredentialsSecureStorageMockIntegrationShould {
 
-    private CredentialsSecureStore credentialsSecureStore;
+    private ObjectKeyValueStore<Credentials> credentialsSecureStore;
 
     @Before
-    public void setUp() {
+    public void setUp() throws D2Error {
         credentialsSecureStore =
-                new CredentialsSecureStoreImpl(InstrumentationRegistry.getContext().getApplicationContext());
+                new CredentialsSecureStoreImpl(
+                        new AndroidSecureStore(InstrumentationRegistry.getInstrumentation().getContext()));
     }
 
     @Test
     public void credentials_are_correctly_stored() {
         Credentials credentials = Credentials.create("username", "password");
-        credentialsSecureStore.setCredentials(credentials);
+        credentialsSecureStore.set(credentials);
 
-        Credentials retrievedCredentials = credentialsSecureStore.getCredentials();
+        Credentials retrievedCredentials = credentialsSecureStore.get();
 
         assertThat(retrievedCredentials.username()).isEqualTo(credentials.username());
         assertThat(retrievedCredentials.password()).isEqualTo(credentials.password());
@@ -62,11 +64,11 @@ public class CredentialsSecureStorageMockIntegrationShould {
     @Test
     public void credentials_are_correctly_removed() {
         Credentials credentials = Credentials.create("username", "password");
-        credentialsSecureStore.setCredentials(credentials);
+        credentialsSecureStore.set(credentials);
 
-        credentialsSecureStore.removeCredentials();
+        credentialsSecureStore.remove();
 
-        Credentials retrievedCredentials = credentialsSecureStore.getCredentials();
+        Credentials retrievedCredentials = credentialsSecureStore.get();
 
         assertThat(retrievedCredentials).isNull();
     }

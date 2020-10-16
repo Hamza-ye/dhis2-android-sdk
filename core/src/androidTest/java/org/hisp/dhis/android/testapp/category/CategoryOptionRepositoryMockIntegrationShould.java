@@ -76,4 +76,20 @@ public class CategoryOptionRepositoryMockIntegrationShould extends BaseMockInteg
                 .blockingGet();
         assertThat(options.size(), is(5));
     }
+
+    @Test
+    public void filter_by_category_uid() {
+        List<CategoryOption> options = d2.categoryModule().categoryOptions()
+                .byCategoryUid("KfdsGBcoiCa")
+                .blockingGet();
+        assertThat(options.size(), is(3));
+    }
+
+    @Test
+    public void filter_by_category_option_combo_uid() {
+        List<CategoryOption> options = d2.categoryModule().categoryOptions()
+                .byCategoryOptionComboUid("Gmbgme7z9BF")
+                .blockingGet();
+        assertThat(options.size(), is(2));
+    }
 }

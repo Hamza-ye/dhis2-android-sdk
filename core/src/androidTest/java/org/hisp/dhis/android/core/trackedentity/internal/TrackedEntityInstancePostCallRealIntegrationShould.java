@@ -28,6 +28,7 @@
 
 package org.hisp.dhis.android.core.trackedentity.internal;
 
+import org.hisp.dhis.android.core.BaseRealIntegrationTest;
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.D2Factory;
 import org.hisp.dhis.android.core.arch.call.D2Progress;
@@ -59,7 +60,6 @@ import org.hisp.dhis.android.core.relationship.RelationshipTypeCollectionReposit
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityAttributeValue;
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValue;
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance;
-import org.hisp.dhis.android.core.utils.integration.real.BaseRealIntegrationTest;
 import org.junit.Before;
 
 import java.io.IOException;
@@ -110,11 +110,11 @@ public class TrackedEntityInstancePostCallRealIntegrationShould extends BaseReal
 
         d2= D2Factory.forNewDatabase();
 
-        trackedEntityInstanceStore = TrackedEntityInstanceStoreImpl.create(databaseAdapter());
-        enrollmentStore = EnrollmentStoreImpl.create(databaseAdapter());
-        eventStore = EventStoreImpl.create(databaseAdapter());
-        trackedEntityAttributeValueStore = TrackedEntityAttributeValueStoreImpl.create(databaseAdapter());
-        trackedEntityDataValueStore = TrackedEntityDataValueStoreImpl.create(databaseAdapter());
+        trackedEntityInstanceStore = TrackedEntityInstanceStoreImpl.create(d2.databaseAdapter());
+        enrollmentStore = EnrollmentStoreImpl.create(d2.databaseAdapter());
+        eventStore = EventStoreImpl.create(d2.databaseAdapter());
+        trackedEntityAttributeValueStore = TrackedEntityAttributeValueStoreImpl.create(d2.databaseAdapter());
+        trackedEntityDataValueStore = TrackedEntityDataValueStoreImpl.create(d2.databaseAdapter());
 
         uidGenerator = new UidGeneratorImpl();
         orgUnitUid = "DiszpKrYNg8";
@@ -350,10 +350,11 @@ public class TrackedEntityInstancePostCallRealIntegrationShould extends BaseReal
         List<TrackedEntityInstance> responseTeiB = d2.trackedEntityModule().trackedEntityInstances().byUid().eq(teiBUid).blockingGet();
         assertThat(responseTeiB.size() == 1).isTrue();
 
-        List<Relationship> relationships = d2.relationshipModule().relationships().getByItem(RelationshipHelper.teiItem(teiA.uid()));
+        List<Relationship> relationships =
+                d2.relationshipModule().relationships().getByItem(RelationshipHelper.teiItem(teiA.uid()), true);
         assertThat(relationships.size() > 0).isTrue();
 
-        Boolean relationshipFound = false;
+        boolean relationshipFound = false;
         for (Relationship relationship : relationships) {
             if (!relationshipType.uid().equals(relationship.relationshipType())) {
                 break;
@@ -479,8 +480,8 @@ public class TrackedEntityInstancePostCallRealIntegrationShould extends BaseReal
 
         Enrollment enrollment = Enrollment.builder()
                 .uid(enrollmentUid).created(refDate).lastUpdated(refDate).organisationUnit(orgUnitUid)
-                .program(programUid).incidentDate(refDate).enrollmentDate(refDate).followUp(Boolean.FALSE)
-                .status(EnrollmentStatus.ACTIVE).trackedEntityInstance(trackedEntityInstanceUid)
+                .program(programUid).incidentDate(refDate).completedDate(refDate).enrollmentDate(refDate)
+                .followUp(Boolean.FALSE).status(EnrollmentStatus.ACTIVE).trackedEntityInstance(trackedEntityInstanceUid)
                 .geometry(Geometry.builder().type(FeatureType.POINT).coordinates("[10.33, 12.231]").build())
                 .state(State.TO_POST).build();
 
@@ -537,7 +538,7 @@ public class TrackedEntityInstancePostCallRealIntegrationShould extends BaseReal
     }
 
     private Enrollment getEnrollmentsByTrackedEntityInstanceFromDb(String trackedEntityInstanceUid) {
-        EnrollmentStore enrollmentStore = EnrollmentStoreImpl.create(databaseAdapter());
+        EnrollmentStore enrollmentStore = EnrollmentStoreImpl.create(d2.databaseAdapter());
         Enrollment enrollment = null;
         List<Enrollment> storedEnrollments = enrollmentStore.selectWhere(new WhereClauseBuilder()
                 .appendKeyStringValue(EnrollmentTableInfo.Columns.TRACKED_ENTITY_INSTANCE, trackedEntityInstanceUid).build());

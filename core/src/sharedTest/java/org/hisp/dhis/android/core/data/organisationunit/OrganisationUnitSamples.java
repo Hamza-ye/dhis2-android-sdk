@@ -28,6 +28,9 @@
 
 package org.hisp.dhis.android.core.data.organisationunit;
 
+import org.hisp.dhis.android.core.arch.helpers.UidGeneratorImpl;
+import org.hisp.dhis.android.core.common.FeatureType;
+import org.hisp.dhis.android.core.common.Geometry;
 import org.hisp.dhis.android.core.common.ObjectWithUid;
 import org.hisp.dhis.android.core.data.utils.FillPropertiesTestUtils;
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
@@ -57,6 +60,10 @@ public class OrganisationUnitSamples {
                 .openingDate(FillPropertiesTestUtils.CREATED)
                 .closedDate(FillPropertiesTestUtils.LAST_UPDATED)
                 .level(100)
+                .geometry(Geometry.builder()
+                        .type(FeatureType.POLYGON)
+                        .coordinates("[11.0, 11.0]")
+                        .build())
                 .parent(null)
                 .displayNamePath(displayNamePathArray)
                 .build();
@@ -108,6 +115,28 @@ public class OrganisationUnitSamples {
                 .level(4)
                 .parent(ObjectWithUid.create("qtr8GGlm4gg"))
                 .displayNamePath(Collections.singletonList("Adonkia CHP"))
+                .build();
+    }
+
+    public static OrganisationUnit getOrganisationUnit(String name, int level, OrganisationUnit parent) throws ParseException {
+        String parentPath = parent == null ? "" : parent.path();
+        String uid = new UidGeneratorImpl().generate();
+        return OrganisationUnit.builder()
+                .uid(uid)
+                .code("code")
+                .name(name)
+                .displayName(name)
+                .created("2012-02-17T15:54:39.987")
+                .lastUpdated("2017-05-22T15:21:48.515")
+                .shortName(name)
+                .displayShortName(name)
+                .description(null)
+                .displayDescription(null)
+                .path(parentPath + "/" + uid)
+                .openingDate("2010-01-01T00:00:00.000")
+                .level(level)
+                .parent(parent == null ? null : ObjectWithUid.create(parent.uid()))
+                .displayNamePath(Collections.singletonList(name))
                 .build();
     }
 }

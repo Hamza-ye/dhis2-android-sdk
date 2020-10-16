@@ -35,7 +35,6 @@ import org.hisp.dhis.android.core.arch.helpers.CollectionsHelper;
 import org.hisp.dhis.android.core.maintenance.D2Error;
 import org.hisp.dhis.android.core.maintenance.D2ErrorCode;
 import org.hisp.dhis.android.core.maintenance.D2ErrorComponent;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitMode;
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityInstance;
 import org.hisp.dhis.android.core.trackedentity.internal.TrackedEntityInstanceService;
 
@@ -71,17 +70,22 @@ class TrackedEntityInstanceQueryCallFactory {
         return () -> queryTrackedEntityInstances(query);
     }
 
+    @SuppressWarnings({"PMD.NPathComplexity"})
     private List<TrackedEntityInstance> queryTrackedEntityInstances(TrackedEntityInstanceQueryOnline query)
             throws D2Error {
 
-        OrganisationUnitMode mode = query.orgUnitMode();
-        String orgUnitModeStr = mode == null ? null : mode.toString();
+        String orgUnitModeStr = query.orgUnitMode() == null ? null : query.orgUnitMode().toString();
+
+        String assignedUserModeStr = query.assignedUserMode() == null ? null : query.assignedUserMode().toString();
+        String enrollmentStatus = query.enrollmentStatus() == null ? null : query.enrollmentStatus().toString();
+        String eventStatus = query.eventStatus() == null ? null : query.eventStatus().toString();
 
         String orgUnits = CollectionsHelper.joinCollectionWithSeparator(query.orgUnits(), ";");
-        Call<SearchGrid> searchGridCall = service.query(orgUnits,
-                orgUnitModeStr, query.program(), query.formattedProgramStartDate(), query.formattedProgramEndDate(),
-                query.trackedEntityType(), query.query(), query.attribute(), query.filter(),
-                query.paging(), query.page(), query.pageSize());
+        Call<SearchGrid> searchGridCall = service.query(orgUnits, orgUnitModeStr, query.program(),
+                query.formattedProgramStartDate(), query.formattedProgramEndDate(), enrollmentStatus,
+                query.formattedEventStartDate(), query.formattedEventEndDate(), eventStatus,
+                query.trackedEntityType(), query.query(), query.attribute(), query.filter(), assignedUserModeStr,
+                query.order(), query.paging(), query.page(), query.pageSize());
 
         SearchGrid searchGrid;
 

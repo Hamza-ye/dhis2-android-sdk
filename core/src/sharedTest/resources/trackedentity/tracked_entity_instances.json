@@ -3,6 +3,8 @@
     {
       "lastUpdated": "2019-01-10T13:40:28.592",
       "trackedEntityType": "nEenWmSyUEp",
+      "createdAtClient": "2019-01-22T18:38:15.845",
+      "lastUpdatedAtClient": "2019-01-22T18:38:15.845",
       "created": "2019-01-10T13:40:27.987",
       "orgUnit": "DiszpKrYNg8",
       "trackedEntityInstance": "nWrB0TfWlvh",
@@ -89,16 +91,16 @@
           },
           "notes": [
             {
-              "note": "noteUid1",
+              "note": "enrollmentNote1",
               "storedDate": "2018-03-19T15:20:55.058",
               "storedBy": "android",
-              "value": "Note 1"
+              "value": "TEI enrollment note 1"
             },
             {
-              "note": "noteUid2",
+              "note": "enrollmentNote2",
               "storedDate": "2018-03-19T15:20:55.058",
               "storedBy": "android",
-              "value": "Note 2"
+              "value": "TEI enrollment note 2"
             }
           ],
           "events": [
@@ -133,7 +135,20 @@
                   "providedElsewhere": false
                 }
               ],
-              "notes": []
+              "notes": [
+                {
+                  "note": "teiNote1",
+                  "storedDate": "2018-03-19T15:20:55.058",
+                  "storedBy": "android",
+                  "value": "TEI event note 1"
+                },
+                {
+                  "note": "teiNote2",
+                  "storedDate": "2018-03-19T15:20:55.058",
+                  "storedBy": "android",
+                  "value": "TEI event note 2"
+                }
+              ]
             }
           ]
         }
@@ -142,8 +157,8 @@
     {
       "lastUpdated": "2018-01-10T13:40:28.592",
       "trackedEntityType": "nEenWmSyUEp",
-      "createdAtClient": "2019-01-22T18:38:15.845",
-      "lastUpdatedAtClient": "2019-01-22T18:38:15.845",
+      "createdAtClient": "2018-01-22T18:38:15.845",
+      "lastUpdatedAtClient": "2018-01-22T18:38:15.845",
       "coordinates": "[9,9]",
       "created": "2018-01-10T13:40:27.987",
       "orgUnit": "DiszpKrYNg8",
@@ -179,7 +194,7 @@
           "enrollment": "enroll2",
           "trackedEntityInstance": "nWrB0TfWlvD",
           "lastUpdated": "2018-01-10T13:40:28.718",
-          "createdAtClient": "2019-01-08T13:40:28.718",
+          "createdAtClient": "2018-01-08T13:40:28.718",
           "lastUpdatedAtClient": "2018-01-11T13:40:28.718",
           "enrollmentDate": "2018-01-10T00:00:00.000",
           "followup": false,
@@ -188,16 +203,16 @@
           "status": "ACTIVE",
           "notes": [
             {
-              "note": "noteUid3",
+              "note": "enrollmentNote3",
               "storedDate": "2018-03-19T15:20:55.058",
               "storedBy": "android",
-              "value": "Note 3"
+              "value": "TEI enrollment note 3"
             },
             {
-              "note": "noteUid4",
+              "note": "enrollmentNote4",
               "storedDate": "2018-03-19T15:20:55.058",
               "storedBy": "android",
-              "value": "Note 4"
+              "value": "TEI enrollmnet note 4"
             }
           ],
           "coordinate": {
@@ -213,8 +228,7 @@
               "program": "lxAQ7Zs9VYR",
               "href": "https://play.dhis2.org/demo/api/events/hnaWBxMw5j3",
               "event": "event2",
-              "status": "COMPLETED",
-              "eventDate": "2016-05-01T00:00:00.000",
+              "status": "SCHEDULE",
               "orgUnitName": "Ngelehun CHC",
               "created": "2016-09-08T21:40:22.000",
               "completedDate": "2015-11-15T00:00:00.000",
@@ -227,7 +241,14 @@
                 "longitude": 0.0
               },
               "dataValues": [],
-              "notes": []
+              "notes": [
+                {
+                  "note": "teiNote3",
+                  "storedDate": "2016-11-11T15:20:55.058",
+                  "storedBy": "android",
+                  "value": "TEI event note 3"
+                }
+              ]
             }
           ]
         }

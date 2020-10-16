@@ -32,17 +32,22 @@ import org.hisp.dhis.android.core.category.CategoryCategoryComboLink;
 import org.hisp.dhis.android.core.category.CategoryCategoryComboLinkTableInfo;
 import org.hisp.dhis.android.core.data.category.CategoryCategoryComboLinkSamples;
 import org.hisp.dhis.android.core.data.database.LinkStoreAbstractIntegrationShould;
-import org.hisp.dhis.android.core.utils.integration.mock.DatabaseAdapterFactory;
+import org.hisp.dhis.android.core.utils.integration.mock.TestDatabaseAdapterFactory;
 import org.hisp.dhis.android.core.utils.runner.D2JunitRunner;
+import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Map;
+
+import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(D2JunitRunner.class)
 public class CategoryCategoryComboLinkStoreIntegrationShould
         extends LinkStoreAbstractIntegrationShould<CategoryCategoryComboLink> {
 
     public CategoryCategoryComboLinkStoreIntegrationShould() {
-        super(CategoryCategoryComboLinkStore.create(DatabaseAdapterFactory.get()),
-                CategoryCategoryComboLinkTableInfo.TABLE_INFO, DatabaseAdapterFactory.get());
+        super(CategoryCategoryComboLinkStore.create(TestDatabaseAdapterFactory.get()),
+                CategoryCategoryComboLinkTableInfo.TABLE_INFO, TestDatabaseAdapterFactory.get());
     }
 
     @Override
@@ -60,5 +65,15 @@ public class CategoryCategoryComboLinkStoreIntegrationShould
         return buildObject().toBuilder()
                 .categoryCombo("new_category_combo")
                 .build();
+    }
+
+    @Test
+    public void count_by_master_column() {
+        store.insert(buildObjectWithOtherMasterUid());
+        store.insert(buildObject());
+        Map<String, Integer> count = store.groupAndGetCountBy(CategoryCategoryComboLinkTableInfo.Columns.CATEGORY_COMBO);
+        assertThat(count.keySet().size()).isEqualTo(2);
+        assertThat(count.get(buildObjectWithOtherMasterUid().categoryCombo())).isEqualTo(1);
+        assertThat(count.get(buildObject().categoryCombo())).isEqualTo(1);
     }
 }

@@ -27,13 +27,16 @@
  */
 package org.hisp.dhis.android.core.organisationunit.internal;
 
+import androidx.annotation.NonNull;
+
 import org.hisp.dhis.android.core.arch.handlers.internal.HandlerWithTransformer;
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
 import org.hisp.dhis.android.core.user.User;
 
-import java.util.Set;
+import java.util.Collection;
 
 interface OrganisationUnitHandler extends HandlerWithTransformer<OrganisationUnit> {
     void resetLinks();
-    void setData(Set<String> programUids, Set<String> dataSetUids, User user, OrganisationUnit.Scope scope);
+    void setData(User user, OrganisationUnit.Scope scope);
+    void addUserOrganisationUnitLinks(@NonNull Collection<OrganisationUnit> organisationUnits);
 }

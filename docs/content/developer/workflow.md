@@ -28,15 +28,18 @@ d2.userModule().logOut()
 After a logout, the SDK keeps track of the last logged user so that it is able to differentiate recurring and new users. It also keeps a hash of the user credentials in order to authenticate the user even when there is no connectivity. Given that said, the login method will:
 
 - If an authenticated user already exists: throw an error.
-- If *Online*:
-  - If user is different than last logged user: try **login online** and wipe DB if successful.
-  - If server is different (even if the user is the same): try **login online** and wipe DB if successful.
-  - If user account has been disabled in server: wipe DB and throw an error.
-- If *Offline*:
-  - If the user has ever been authenticated:
-    - If server is the same: try **login offline**.
-    - If server is different: throw an error.
-  - If the user has not been authenticated before: throw an error.
+- Else if *Online*:
+  - Try **login online**: the SDK will send the username and password to the API, which will determine whether they are correct. If successful:
+        - If no database exists: create new database with encryption value from server.
+        - If database for another [serverUrl, user] exists, delete it and create new database with encryption value from server. Not synced data of previously logged user will be permanently lost.
+        - If database for the current [serverUrl, user] pair exists, open the database and encrypt or decrypt database if encryption status has changed in the server.
+  - If user account has been disabled in server: delete database and throw an error.
+- Else if *Offline*:
+  - If the [serverUrl, user] pair was the last authenticated:
+    - Try **login offline**: the SDK will verify that the credentials are the same as the last provided, which were previously validated by the API.
+  - If the [serverUrl, user] pair was not the last authenticated: throw an error
+
+Calling module or repository methods before a successful login or after a logout will result in "Database not created" errors.
 
 Logout method removes user credentials, so a new login is required before any interaction with the server. Metadata and data is preserved so a user is able to logout/login without losing any information.
 
@@ -58,6 +61,7 @@ Based on that, metadata sync includes the following elements:
 |-----------------------|-------------|
 | System info           | All |
 | System settings       | KeyFlag, KeyStyle |
+| User settings         | KeyDbLocale, KeyUiLocale |
 | User                  | Only authenticated user |
 | UserRole              | Roles assigned to authenticated user |
 | Authority             | Authorities assigned to authenticated user |
@@ -65,6 +69,7 @@ Based on that, metadata sync includes the following elements:
 | RelationshipTypes     | All |
 | OptionGroups          | Only if server is greater than 2.29 |
 | DataSet               | DataSets that user has (at least) read data access to and that are assigned to any orgunit visible by the user |
+| Validation rules      | Validation rules associated to the dataSets |
 | Indicators            | Indicators assigned to downloaded dataSets |
 | OrganisationUnit      | OrganisationUnits in CAPTURE or SEARCH scope (descendants included) |
 | OrganisationUnitGroup | Groups assigned to downloaded organisationUnits |
@@ -103,13 +108,17 @@ The possible states are:
 
 Additionally, in `TrackedEntityInstance` we might have:
 
-- **RELATIONSHIP**. This TrackedEntityInstance has been downloaded with the sole purpose of fulfilling a relationship to another TEI. This `RELATIONSHIP` TEI only has basic information (uid, type, etc) and the list of TrackedEntityAttributes to be able to print meaningful information about the relationship. Other data such as enrollments, events or relationships is not downloaded for this TEI. Also, this TEI cannot be modified or uploaded to the server.
+- **RELATIONSHIP**. This TrackedEntityInstance has been downloaded with the sole purpose of fulfilling a relationship to another TEI. This `RELATIONSHIP` TEI only has basic information (uid, type, etc) and the list of TrackedEntityAttributes to be able to print meaningful information about the relationship. Other data such as enrollments, events or relationships are not downloaded for this TEI. Also, this TEI cannot be modified or uploaded to the server.
 
 ## Tracker data
 
 <!--DHIS2-SECTION-ID:tracker_data-->
 
 ### Tracker data download
+
+> **Important**
+>
+> See [Settings App](#settings_app) section to know how this application can be used to control synchronization parameters.
 
 By default, the SDK only downloads TrackedEntityInstances and Events
 that are located in user capture scope, but it is also possible to
@@ -142,7 +151,7 @@ d2.eventModule().eventDownloader()
     .download()
 ```
 
-Currently it is possible to specify the next filters:
+Currently, it is possible to specify the next filters:
 
 - `byProgramUid()`. Filters by program uid and downloads the not synced
   objects inside the program.
@@ -155,7 +164,7 @@ The downloader also allows to limit the number of downloaded objects.
 These limits can also be combined with each other.
 
 - `limit()`. Limit the maximum number of objects to download.
-- `limitByProgram()`. Take the established limit and apply it for each
+- `limitByProgram()`. Take the established limit and apply it to each
   program. The number of objects that will be downloaded will be the one
   obtained by multiplying the limit set by the number of user programs.
 - `limitByOrgunit()`. Take the established limit and apply it for each
@@ -267,7 +276,7 @@ Additionally, the repository offers different strategies to fetch data:
 - `byTrackedEntityType()`. Filter by TrackedEntityType. Only one type
   can be specified.
 - `byIncludeDeleted()`. Whether to include or not deleted tracked entity
-  instances. Currently this filter only applies to **offline**
+  instances. Currently, this filter only applies to **offline**
   instances.
 - `byStates()`. Filter by sync status. Using this filter forces
   **offline only** mode.
@@ -283,7 +292,9 @@ d2.trackedEntityModule().trackedEntityInstanceQuery()
                 .offlineFirst()
 ```
 
-> ***Important***: trackedEntityInstances retrieved using this repository are not persisted in the database. It is possible
+> **Important**
+>
+> TrackedEntityInstances retrieved using this repository are not persisted in the database. It is possible
 to fully download them using the `byUid()` filter of the `TrackedEntityInstanceDownloader` within the tracked entity instance module.
 
 [//]: # (Include glass protected download)
@@ -337,8 +348,9 @@ Server response is parsed to ensure that data has been correctly uploaded to the
 d2.importModule().trackerImportConflicts()
 ```
 
-Conflicts linked to a TrackedEntityInstance, Enrollment or Event are
-automatically removed after a successful upload of the object.
+Conflicts linked to a TrackedEntityInstance, Enrollment or Event are automatically removed after a successful upload of the object.
+
+The SDK tries to identify the confliction dataElement or attribute by parsing the server response. If so, it also stores the value of the element when the conflict happened so that the application can highlight the element in form when the value has not been fixed yet.
 
 ### Tracker data: reserved values
 
@@ -362,11 +374,42 @@ Reserved values can be obtained by:
 d2.trackedEntityModule().reservedValueManager().getValue("attributeUid", "orgunitUid")
 ```
 
+### Tracker data: relationships
+
+Currently the SDK only supports relatinships from TEI to TEI. They accessed by using the relationships module.
+
+Query relationships associated to a TEI.
+
+```java
+d2.relationshipModule().relationships().getByItem(
+    RelationshipHelper.teiItem("trackedEntityInstanceUid")
+)
+```
+
+In the same module you can create new relationships using this method:
+
+```java
+Relationship relationship = RelationshipHelper.teiToTeiRelationship("fromTEIUid", "toTEIUid", "relationshipTypeUid");
+
+d2.relationshipModule().relationships().add(relationship);
+```
+
+If the related trackedEntityInstance does not exist yet and there are attribute values that must be inherited, you can use the following method to inherit attribute values from one TEI to another in the context of a certain program. Only those attribute marked as `inherit` will be inherited.
+
+```java
+d2.trackedEntityModule().trackedEntityInstanceService()
+    .inheritAttributes("fromTeiUid", "toTeiUid", "programUid");
+```
+
 ## Aggregated data
 
 <!--DHIS2-SECTION-ID:aggregated_data-->
 
 ### Aggregated data download
+
+> **Important**
+>
+> See [Settings App](#settings_app) section to know how this application can be used to control synchronization parameters.
 
 ```java
 d2.aggregatedModule().data().download()
@@ -404,7 +447,7 @@ approval are:
 - `UNAPPROVED_WAITING`. Data could be approved for this selection, but
   is waiting for some lower-level approval before it is ready to be
   approved.
-- `UNAPPROVED_ELSEWHERE`. Data is unapproved, and is waiting for
+- `UNAPPROVED_ELSEWHERE`. Data is unapproved and is waiting for
   approval somewhere else (can not be approved here).
 - `UNAPPROVED_READY`. Data is unapproved, and is ready to be approved
   for this selection.
@@ -425,7 +468,7 @@ Data approvals are downloaded only for versions greater than 2.29.
 #### Periods
 
 In order to write data values or data set complete registrations, it's mandatory to provide a period id. Periods are stored in a table in the database and
-the provided period ids must be already present in that table, otherwise a Foreign Key error will be thrown. To prevent that situation, the `PeriodHelper` is
+the provided period ids must be already present in that table, otherwise, a Foreign Key error will be thrown. To prevent that situation, the `PeriodHelper` is
 exposed inside the `PeriodModule`. Before adding aggregated data related to a dataSet, the following method must be called:
 
 ```java
@@ -439,7 +482,7 @@ This will ensure that:
 
 #### Data value
 
-DataValueCollectionRepository has a `value()` method that gives access to edition methods. The parameters accepted by this method are the parameters that unambiguosly identify a value.
+DataValueCollectionRepository has a `value()` method that gives access to edition methods. The parameters accepted by this method are the parameters that unambiguously identify a value.
 
 ```java
 DataValueObjectRepository valueRepository = d2.dataValueModule().dataValues()
@@ -462,10 +505,10 @@ d2.dataSetModule().dataSetCompleteRegistrations()
     .add(dataSetCompleteRegistration);
 ```
 
-In order to remove them from the database the repository has a `value()`
+In order to remove them from the database, the repository has a `value()`
 method that gives access to deletion methods (`delete()` and
 `deleteIfExist()`). The parameters accepted by this method are the
-parameters that unambiguosly identify the data set complete
+parameters that unambiguously identify the data set complete
 registration.
 
 ```java
@@ -499,6 +542,8 @@ d2.dataSetModule().dataSetInstances()
     .get();
 ```
 
+If you only need a high level overview of the aggregated data status, you can use the repository `DataSetInstanceSummary`. It accepts the same filters and returns a count of `DataSetInstance` for each combination.
+
 ## Dealing with FileResources
 
 <!--DHIS2-SECTION-ID:file_resources-->
@@ -521,7 +566,7 @@ The `download()` method will search for the tracked entity attribute values â€‹â
 - **File resource collection repository**.
 Through this repository it is possible to request files, save new ones and upload them to the server. 
 
-  - **Get**. It behaves in a similiar fashion to any other Sdk repository. It allows to get collections by applying different filters if desired.
+  - **Get**. It behaves in a similar fashion to any other Sdk repository. It allows to get collections by applying different filters if desired.
   
     ```java
     d2.fileResourceModule().fileResources()

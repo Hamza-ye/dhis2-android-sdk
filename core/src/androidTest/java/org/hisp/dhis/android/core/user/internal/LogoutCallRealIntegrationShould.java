@@ -28,6 +28,7 @@
 
 package org.hisp.dhis.android.core.user.internal;
 
+import org.hisp.dhis.android.core.BaseRealIntegrationTest;
 import org.hisp.dhis.android.core.D2;
 import org.hisp.dhis.android.core.D2Factory;
 import org.hisp.dhis.android.core.arch.db.stores.internal.ObjectWithoutUidStore;
@@ -35,7 +36,6 @@ import org.hisp.dhis.android.core.event.Event;
 import org.hisp.dhis.android.core.event.EventTableInfo;
 import org.hisp.dhis.android.core.event.internal.EventCallFactory;
 import org.hisp.dhis.android.core.user.AuthenticatedUser;
-import org.hisp.dhis.android.core.utils.integration.real.BaseRealIntegrationTest;
 import org.junit.Before;
 
 import java.io.IOException;
@@ -58,7 +58,7 @@ public class LogoutCallRealIntegrationShould extends BaseRealIntegrationTest {
 
         d2 = D2Factory.forNewDatabase();
 
-        authenticatedUserStore = AuthenticatedUserStore.create(databaseAdapter());
+        authenticatedUserStore = AuthenticatedUserStore.create(d2.databaseAdapter());
     }
 
     //@Test
@@ -71,17 +71,17 @@ public class LogoutCallRealIntegrationShould extends BaseRealIntegrationTest {
 
         eventCall.call();
 
-        assertThat(isDatabaseEmpty(databaseAdapter())).isFalse();
+        assertThat(isDatabaseEmpty(d2.databaseAdapter())).isFalse();
 
         d2.userModule().logOut().blockingAwait();
 
-        assertThat(isDatabaseEmpty(databaseAdapter())).isFalse();
-        assertThat(isTableEmpty(databaseAdapter(), EventTableInfo.TABLE_INFO.name())).isFalse();
+        assertThat(isDatabaseEmpty(d2.databaseAdapter())).isFalse();
+        assertThat(isTableEmpty(d2.databaseAdapter(), EventTableInfo.TABLE_INFO.name())).isFalse();
 
         AuthenticatedUser authenticatedUser = authenticatedUserStore.selectFirst();
 
         assertThat(authenticatedUser).isNotNull();
-        assertThat(credentialsSecureStore.getCredentials()).isNull();
+        assertThat(getD2DIComponent(d2).credentialsSecureStore().get()).isNull();
     }
 
     //@Test
@@ -91,23 +91,23 @@ public class LogoutCallRealIntegrationShould extends BaseRealIntegrationTest {
 
         d2.metadataModule().blockingDownload();
 
-        assertThat(isDatabaseEmpty(databaseAdapter())).isFalse();
+        assertThat(isDatabaseEmpty(d2.databaseAdapter())).isFalse();
 
         d2.userModule().logOut().blockingAwait();
 
-        assertThat(isDatabaseEmpty(databaseAdapter())).isFalse();
+        assertThat(isDatabaseEmpty(d2.databaseAdapter())).isFalse();
 
         AuthenticatedUser authenticatedUser = authenticatedUserStore.selectFirst();
 
         assertThat(authenticatedUser).isNotNull();
-        assertThat(credentialsSecureStore.getCredentials()).isNull();
+        assertThat(getD2DIComponent(d2).credentialsSecureStore().get()).isNull();
 
         d2.userModule().logIn(username, password, url).blockingGet();
 
         authenticatedUser = authenticatedUserStore.selectFirst();
 
         assertThat(authenticatedUser).isNotNull();
-        assertThat(credentialsSecureStore.getCredentials()).isNotNull();
+        assertThat(getD2DIComponent(d2).credentialsSecureStore().get()).isNull();
     }
 
     //@Test

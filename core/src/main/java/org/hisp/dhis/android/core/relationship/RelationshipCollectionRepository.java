@@ -28,20 +28,22 @@
 package org.hisp.dhis.android.core.relationship;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import org.hisp.dhis.android.core.arch.db.stores.internal.StoreWithState;
+import org.hisp.dhis.android.core.arch.helpers.UidGeneratorImpl;
 import org.hisp.dhis.android.core.arch.helpers.UidsHelper;
 import org.hisp.dhis.android.core.arch.repositories.children.internal.ChildrenAppender;
 import org.hisp.dhis.android.core.arch.repositories.collection.ReadWriteWithUidCollectionRepository;
-import org.hisp.dhis.android.core.arch.repositories.collection.internal.ReadOnlyCollectionRepositoryImpl;
+import org.hisp.dhis.android.core.arch.repositories.collection.internal.BaseReadOnlyWithUidCollectionRepositoryImpl;
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.DateFilterConnector;
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.FilterConnectorFactory;
 import org.hisp.dhis.android.core.arch.repositories.filters.internal.StringFilterConnector;
 import org.hisp.dhis.android.core.arch.repositories.object.ReadWriteObjectRepository;
 import org.hisp.dhis.android.core.arch.repositories.scope.RepositoryScope;
+import org.hisp.dhis.android.core.arch.repositories.scope.internal.RepositoryScopeHelper;
 import org.hisp.dhis.android.core.common.IdentifiableColumns;
 import org.hisp.dhis.android.core.common.State;
+import org.hisp.dhis.android.core.common.internal.DataStatePropagator;
 import org.hisp.dhis.android.core.maintenance.D2Error;
 import org.hisp.dhis.android.core.maintenance.D2ErrorCode;
 import org.hisp.dhis.android.core.maintenance.D2ErrorComponent;
@@ -60,19 +62,22 @@ import javax.inject.Inject;
 import dagger.Reusable;
 import io.reactivex.Single;
 
+import static org.hisp.dhis.android.core.arch.helpers.CollectionsHelper.isDeleted;
 import static org.hisp.dhis.android.core.relationship.RelationshipConstraintType.FROM;
 import static org.hisp.dhis.android.core.relationship.RelationshipConstraintType.TO;
+import static org.hisp.dhis.android.core.relationship.RelationshipHelper.areItemsEqual;
 
 @Reusable
 @SuppressWarnings("PMD.ExcessiveImports")
-public final class RelationshipCollectionRepository
-        extends ReadOnlyCollectionRepositoryImpl<Relationship, RelationshipCollectionRepository>
+public class RelationshipCollectionRepository
+        extends BaseReadOnlyWithUidCollectionRepositoryImpl<Relationship, RelationshipCollectionRepository>
         implements ReadWriteWithUidCollectionRepository<Relationship, Relationship> {
 
     private final RelationshipStore store;
     private final RelationshipHandler relationshipHandler;
     private final RelationshipItemStore relationshipItemStore;
     private final RelationshipItemElementStoreSelector storeSelector;
+    private final DataStatePropagator dataStatePropagator;
 
     @Inject
     RelationshipCollectionRepository(final RelationshipStore store,
@@ -80,14 +85,16 @@ public final class RelationshipCollectionRepository
                                      final RepositoryScope scope,
                                      final RelationshipHandler relationshipHandler,
                                      final RelationshipItemStore relationshipItemStore,
-                                     final RelationshipItemElementStoreSelector storeSelector) {
+                                     final RelationshipItemElementStoreSelector storeSelector,
+                                     final DataStatePropagator dataStatePropagator) {
         super(store, childrenAppenders, scope, new FilterConnectorFactory<>(scope,
                 s -> new RelationshipCollectionRepository(store, childrenAppenders, s,
-                        relationshipHandler, relationshipItemStore, storeSelector)));
+                        relationshipHandler, relationshipItemStore, storeSelector, dataStatePropagator)));
         this.store = store;
         this.relationshipHandler = relationshipHandler;
         this.relationshipItemStore = relationshipItemStore;
         this.storeSelector = storeSelector;
+        this.dataStatePropagator = dataStatePropagator;
     }
 
     @Override
@@ -97,6 +104,7 @@ public final class RelationshipCollectionRepository
 
     @Override
     public String blockingAdd(Relationship relationship) throws D2Error {
+        Relationship relationshipWithUid;
         if (relationshipHandler.doesRelationshipExist(relationship)) {
             throw D2Error
                     .builder()
@@ -105,13 +113,23 @@ public final class RelationshipCollectionRepository
                     .errorDescription("Tried to create already existing Relationship: " + relationship)
                     .build();
         } else {
-            RelationshipItem from = relationship.from();
+            if (relationship.uid() == null) {
+                String generatedUid = new UidGeneratorImpl().generate();
+                relationshipWithUid = relationship.toBuilder().uid(generatedUid).build();
+            } else {
+                relationshipWithUid = relationship;
+            }
+
+            RelationshipItem from = relationshipWithUid.from();
             StoreWithState fromStore = storeSelector.getElementStore(from);
             State fromState = fromStore.getState(from.elementUid());
 
             if (isUpdatableState(fromState)) {
-                relationshipHandler.handle(relationship);
-                setToUpdate(fromStore, fromState, from.elementUid());
+                relationshipHandler.handle(relationshipWithUid, r -> r.toBuilder()
+                        .state(State.TO_POST)
+                        .deleted(false)
+                        .build());
+                dataStatePropagator.propagateRelationshipUpdate(from);
             } else {
                 throw D2Error
                         .builder()
@@ -123,25 +141,24 @@ public final class RelationshipCollectionRepository
                         .build();
             }
         }
-        return relationship.uid();
+        return relationshipWithUid.uid();
     }
 
     @Override
     public ReadWriteObjectRepository<Relationship> uid(String uid) {
-        return new RelationshipObjectRepository(store, uid, childrenAppenders, scope, storeSelector);
+        RepositoryScope updatedScope = RepositoryScopeHelper.withUidFilterItem(scope, uid);
+        return new RelationshipObjectRepository(store, uid, childrenAppenders, updatedScope, dataStatePropagator);
     }
 
     private boolean isUpdatableState(State state) {
-        return state == State.SYNCED || state == State.TO_POST || state == State.TO_UPDATE;
-    }
-
-    private void setToUpdate(StoreWithState store, State state, String elementUid) {
-        if (state == State.SYNCED) {
-            store.setState(elementUid, State.TO_UPDATE);
-        }
+        return state != State.RELATIONSHIP;
     }
 
     public List<Relationship> getByItem(@NonNull RelationshipItem searchItem) {
+        return getByItem(searchItem, false);
+    }
+
+    public List<Relationship> getByItem(@NonNull RelationshipItem searchItem, Boolean includeDeleted) {
 
         // TODO Create query to avoid retrieving the whole table
         List<RelationshipItem> relationshipItems = this.relationshipItemStore.selectAll();
@@ -151,11 +168,15 @@ public final class RelationshipCollectionRepository
         List<Relationship> relationships = new ArrayList<>();
 
         for (RelationshipItem iterationItem : relationshipItems) {
-            if (itemComponentsEquals(searchItem, iterationItem)) {
+            if (areItemsEqual(searchItem, iterationItem)) {
                 Relationship relationshipFromDb =
                         UidsHelper.findByUid(allRelationshipsFromDb, iterationItem.relationship().uid());
 
                 if (relationshipFromDb == null) {
+                    continue;
+                }
+
+                if (!includeDeleted && isDeleted(relationshipFromDb)) {
                     continue;
                 }
 
@@ -177,9 +198,7 @@ public final class RelationshipCollectionRepository
                     to = iterationItem;
                 }
 
-                Relationship relationship = Relationship.builder()
-                        .uid(relationshipFromDb.uid())
-                        .relationshipType(relationshipFromDb.relationshipType())
+                Relationship relationship = relationshipFromDb.toBuilder()
                         .from(from)
                         .to(to)
                         .build();
@@ -189,20 +208,6 @@ public final class RelationshipCollectionRepository
         }
 
         return relationships;
-    }
-
-    private <O> boolean equalsConsideringNull(@Nullable O a, @Nullable O b) {
-        if (a == null) {
-            return b == null;
-        } else {
-            return a.equals(b);
-        }
-    }
-
-    private boolean itemComponentsEquals(RelationshipItem a, RelationshipItem b) {
-        return equalsConsideringNull(a.event(), b.event())
-                && equalsConsideringNull(a.enrollment(), b.enrollment())
-                && equalsConsideringNull(a.trackedEntityInstance(), b.trackedEntityInstance());
     }
 
     private RelationshipItem findRelatedTEI(Collection<RelationshipItem> items, String relationshipUid,

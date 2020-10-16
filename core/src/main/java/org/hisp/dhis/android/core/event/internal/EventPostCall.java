@@ -28,28 +28,35 @@
 
 package org.hisp.dhis.android.core.event.internal;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import org.hisp.dhis.android.core.arch.api.executors.internal.APICallExecutor;
 import org.hisp.dhis.android.core.arch.call.D2Progress;
 import org.hisp.dhis.android.core.arch.call.internal.D2ProgressManager;
-import org.hisp.dhis.android.core.arch.helpers.UidsHelper;
+import org.hisp.dhis.android.core.arch.db.querybuilders.internal.WhereClauseBuilder;
+import org.hisp.dhis.android.core.arch.db.stores.internal.IdentifiableObjectStore;
+import org.hisp.dhis.android.core.arch.helpers.internal.DataStateHelper;
+import org.hisp.dhis.android.core.arch.helpers.internal.EnumHelper;
+import org.hisp.dhis.android.core.common.DataColumns;
 import org.hisp.dhis.android.core.common.State;
 import org.hisp.dhis.android.core.event.Event;
-import org.hisp.dhis.android.core.imports.TrackerImportConflict;
 import org.hisp.dhis.android.core.imports.internal.EventWebResponse;
+import org.hisp.dhis.android.core.maintenance.D2Error;
+import org.hisp.dhis.android.core.note.Note;
+import org.hisp.dhis.android.core.note.NoteTableInfo;
 import org.hisp.dhis.android.core.systeminfo.DHISVersionManager;
-import org.hisp.dhis.android.core.systeminfo.SystemInfo;
-import org.hisp.dhis.android.core.systeminfo.internal.SystemInfoModuleDownloader;
 import org.hisp.dhis.android.core.trackedentity.TrackedEntityDataValue;
 import org.hisp.dhis.android.core.trackedentity.internal.TrackedEntityDataValueStore;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import javax.inject.Inject;
 
-import androidx.annotation.NonNull;
 import dagger.Reusable;
 import io.reactivex.Observable;
 
@@ -62,26 +69,26 @@ public final class EventPostCall {
     // adapter and stores
     private final EventStore eventStore;
     private final TrackedEntityDataValueStore trackedEntityDataValueStore;
+    private final IdentifiableObjectStore<Note> noteStore;
     private final EventImportHandler eventImportHandler;
 
     private final APICallExecutor apiCallExecutor;
-    private final SystemInfoModuleDownloader systemInfoDownloader;
 
     @Inject
     EventPostCall(@NonNull DHISVersionManager versionManager,
                   @NonNull EventService eventService,
                   @NonNull EventStore eventStore,
                   @NonNull TrackedEntityDataValueStore trackedEntityDataValueStore,
+                  @NonNull IdentifiableObjectStore<Note> noteStore,
                   @NonNull APICallExecutor apiCallExecutor,
-                  @NonNull EventImportHandler eventImportHandler,
-                  @NonNull SystemInfoModuleDownloader systemInfoDownloader) {
+                  @NonNull EventImportHandler eventImportHandler) {
         this.versionManager = versionManager;
         this.eventService = eventService;
         this.eventStore = eventStore;
         this.trackedEntityDataValueStore = trackedEntityDataValueStore;
+        this.noteStore = noteStore;
         this.apiCallExecutor = apiCallExecutor;
         this.eventImportHandler = eventImportHandler;
-        this.systemInfoDownloader = systemInfoDownloader;
     }
 
     public Observable<D2Progress> uploadEvents(List<Event> filteredEvents) {
@@ -92,24 +99,26 @@ public final class EventPostCall {
             if (eventsToPost.isEmpty()) {
                 return Observable.empty();
             } else {
-                D2ProgressManager progressManager = new D2ProgressManager(2);
-                return systemInfoDownloader.downloadMetadata().andThen(Observable.create(emitter -> {
-
-                    emitter.onNext(progressManager.increaseProgress(SystemInfo.class, false));
-
+                D2ProgressManager progressManager = new D2ProgressManager(1);
+                return Observable.create(emitter -> {
                     EventPayload eventPayload = new EventPayload();
                     eventPayload.events = eventsToPost;
 
                     String strategy = versionManager.is2_29() ? "CREATE_AND_UPDATE" : "SYNC";
 
-                    EventWebResponse webResponse = apiCallExecutor.executeObjectCallWithAcceptedErrorCodes(
-                            eventService.postEvents(eventPayload, strategy), Collections.singletonList(409),
-                            EventWebResponse.class);
+                    try {
+                        EventWebResponse webResponse = apiCallExecutor.executeObjectCallWithAcceptedErrorCodes(
+                                eventService.postEvents(eventPayload, strategy), Collections.singletonList(409),
+                                EventWebResponse.class);
 
-                    handleWebResponse(webResponse);
-                    emitter.onNext(progressManager.increaseProgress(Event.class, true));
-                    emitter.onComplete();
-                }));
+                        handleWebResponse(webResponse);
+                        emitter.onNext(progressManager.increaseProgress(Event.class, true));
+                        emitter.onComplete();
+                    } catch (D2Error e) {
+                        markObjectsAs(eventsToPost, DataStateHelper.errorIfOnline(e));
+                        throw e;
+                    }
+                });
             }
         });
     }
@@ -120,23 +129,44 @@ public final class EventPostCall {
                 trackedEntityDataValueStore.querySingleEventsTrackedEntityDataValues();
 
         List<Event> events = filteredEvents == null ? eventStore.querySingleEventsToPost() : filteredEvents;
-        List<Event> eventRecreated = new ArrayList<>();
+        List<Note> notes = queryNotesToSync();
 
+        List<Event> eventRecreated = new ArrayList<>();
         for (Event event : events) {
             List<TrackedEntityDataValue> dataValuesForEvent = dataValueMap.get(event.uid());
+            List<Note> eventNotes = getEventNotes(notes, event.uid());
+
+            Event.Builder eventBuilder = event.toBuilder()
+                    .trackedEntityDataValues(dataValuesForEvent)
+                    .notes(eventNotes);
             if (versionManager.is2_30()) {
-                eventRecreated.add(event.toBuilder()
-                        .trackedEntityDataValues(dataValuesForEvent)
-                        .geometry(null)
-                        .build());
-            } else {
-                eventRecreated.add(event.toBuilder().trackedEntityDataValues(dataValuesForEvent).build());
+                eventBuilder.geometry(null);
             }
+            eventRecreated.add(eventBuilder.build());
         }
 
-        markPartitionsAsUploading(eventRecreated);
+        markObjectsAs(eventRecreated, State.UPLOADING);
 
         return eventRecreated;
+    }
+
+    private List<Note> queryNotesToSync() {
+        String whereNotesClause = new WhereClauseBuilder()
+                .appendInKeyStringValues(
+                        DataColumns.STATE, EnumHelper.asStringList(State.uploadableStatesIncludingError()))
+                .appendKeyStringValue(NoteTableInfo.Columns.NOTE_TYPE, Note.NoteType.EVENT_NOTE)
+                .build();
+        return noteStore.selectWhere(whereNotesClause);
+    }
+
+    private List<Note> getEventNotes(List<Note> allNotes, String eventUid) {
+        List<Note> eventNotes = new ArrayList<>();
+        for (Note note : allNotes) {
+            if (eventUid.equals(note.event())) {
+                eventNotes.add(note);
+            }
+        }
+        return eventNotes;
     }
 
     private void handleWebResponse(EventWebResponse webResponse) {
@@ -145,14 +175,14 @@ public final class EventPostCall {
         }
         eventImportHandler.handleEventImportSummaries(
                 webResponse.response().importSummaries(),
-                TrackerImportConflict.builder(),
                 null,
                 null
         );
     }
 
-    private void markPartitionsAsUploading(List<Event> events) {
-        List<String> eventUids = UidsHelper.getUidsList(events);
-        eventStore.setState(eventUids, State.UPLOADING);
+    private void markObjectsAs(Collection<Event> events, @Nullable State forcedState) {
+        for (Event e: events) {
+            eventStore.setState(e.uid(), DataStateHelper.forcedOrOwn(e, forcedState));
+        }
     }
 }

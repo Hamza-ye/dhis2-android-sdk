@@ -30,25 +30,14 @@ package org.hisp.dhis.android.core.organisationunit.internal;
 
 import android.content.ContentValues;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
-
-import org.hisp.dhis.android.core.arch.api.executors.internal.APICallExecutor;
-import org.hisp.dhis.android.core.arch.api.executors.internal.APICallExecutorImpl;
 import org.hisp.dhis.android.core.arch.db.stores.internal.IdentifiableObjectStore;
-import org.hisp.dhis.android.core.arch.db.stores.internal.LinkStore;
+import org.hisp.dhis.android.core.arch.db.tableinfos.TableInfo;
+import org.hisp.dhis.android.core.category.CategoryComboTableInfo;
 import org.hisp.dhis.android.core.common.IdentifiableColumns;
-import org.hisp.dhis.android.core.common.Unit;
 import org.hisp.dhis.android.core.data.organisationunit.OrganisationUnitSamples;
-import org.hisp.dhis.android.core.dataset.DataSet;
-import org.hisp.dhis.android.core.dataset.DataSetOrganisationUnitLink;
-import org.hisp.dhis.android.core.dataset.internal.DataSetOrganisationUnitLinkStore;
-import org.hisp.dhis.android.core.dataset.internal.DataSetStore;
+import org.hisp.dhis.android.core.dataset.DataSetTableInfo;
 import org.hisp.dhis.android.core.organisationunit.OrganisationUnit;
-import org.hisp.dhis.android.core.organisationunit.OrganisationUnitProgramLink;
 import org.hisp.dhis.android.core.program.ProgramTableInfo;
-import org.hisp.dhis.android.core.program.internal.ProgramStore;
-import org.hisp.dhis.android.core.program.internal.ProgramStoreInterface;
 import org.hisp.dhis.android.core.user.User;
 import org.hisp.dhis.android.core.user.UserInternalAccessor;
 import org.hisp.dhis.android.core.user.UserOrganisationUnitLink;
@@ -57,6 +46,7 @@ import org.hisp.dhis.android.core.user.internal.UserOrganisationUnitLinkStore;
 import org.hisp.dhis.android.core.user.internal.UserOrganisationUnitLinkStoreImpl;
 import org.hisp.dhis.android.core.utils.integration.mock.BaseMockIntegrationTestEmptyEnqueable;
 import org.hisp.dhis.android.core.utils.runner.D2JunitRunner;
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -67,7 +57,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Callable;
+
+import io.reactivex.Single;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -75,7 +66,7 @@ import static com.google.common.truth.Truth.assertThat;
 public class OrganisationUnitCallMockIntegrationShould extends BaseMockIntegrationTestEmptyEnqueable {
     
     //The return of the organisationUnitCall to be tested:
-    private Callable<Unit> organisationUnitCall;
+    private Single<List<OrganisationUnit>> organisationUnitCall;
 
     private OrganisationUnit expectedAfroArabicClinic = OrganisationUnitSamples.getAfroArabClinic();
     private OrganisationUnit expectedAdonkiaCHP = OrganisationUnitSamples.getAdonkiaCHP();
@@ -97,47 +88,56 @@ public class OrganisationUnitCallMockIntegrationShould extends BaseMockIntegrati
         User user = UserInternalAccessor.insertOrganisationUnits(User.builder(), organisationUnits)
                 .uid("user_uid").build();
 
-        database.insert(UserTableInfo.TABLE_INFO.name(), null, user.toContentValues());
+        databaseAdapter.insert(UserTableInfo.TABLE_INFO.name(), null, user.toContentValues());
 
         ContentValues userContentValues = new ContentValues();
         userContentValues.put(IdentifiableColumns.UID, "user_uid");
-        database.insert(UserTableInfo.TABLE_INFO.name(), null, userContentValues);
+        databaseAdapter.insert(UserTableInfo.TABLE_INFO.name(), null, userContentValues);
 
         // inserting programs for creating OrgUnitProgramLinks
         String programUid = "lxAQ7Zs9VYR";
-        insertProgramWithUid(programUid);
-        Set<String> programUids = Sets.newHashSet(Lists.newArrayList(programUid));
+        insertObjectWithUid(programUid, ProgramTableInfo.TABLE_INFO);
+
+        // inserting dataSets for creating OrgUnitDataSetLinks
+        insertDataSet();
 
         OrganisationUnitHandler organisationUnitHandler =
                 OrganisationUnitHandlerImpl.create(databaseAdapter);
 
-        APICallExecutor apiCallExecutor = APICallExecutorImpl.create(databaseAdapter);
-
         OrganisationUnitDisplayPathTransformer pathTransformer = new OrganisationUnitDisplayPathTransformer();
 
-
-        ProgramStoreInterface programStore = ProgramStore.create(databaseAdapter);
-        IdentifiableObjectStore<DataSet> dataSetStore = DataSetStore.create(databaseAdapter);
-        LinkStore<OrganisationUnitProgramLink> organisationUnitProgramLinkStore =
-                OrganisationUnitProgramLinkStore.create(databaseAdapter);
-        LinkStore<DataSetOrganisationUnitLink> dataSetOrganisationUnitLinkStore =
-                DataSetOrganisationUnitLinkStore.create(databaseAdapter);
-
-        organisationUnitCall = new OrganisationUnitCallFactory(organisationUnitService,
-                organisationUnitHandler, pathTransformer, apiCallExecutor, objects.resourceHandler, programStore,
-                dataSetStore, organisationUnitProgramLinkStore, dataSetOrganisationUnitLinkStore)
-                .create(user, programUids, Sets.newHashSet());
+        organisationUnitCall = new OrganisationUnitCall(organisationUnitService,
+                organisationUnitHandler, pathTransformer)
+                .download(user);
     }
 
-    private void insertProgramWithUid(String uid) {
-        ContentValues program = new ContentValues();
-        program.put(IdentifiableColumns.UID, uid);
-        database.insert(ProgramTableInfo.TABLE_INFO.name(), null, program);
+    @AfterClass
+    public static void tearDown() {
+        d2.databaseAdapter().delete(ProgramTableInfo.TABLE_INFO.name());
+        d2.databaseAdapter().delete(DataSetTableInfo.TABLE_INFO.name());
+        d2.databaseAdapter().delete(CategoryComboTableInfo.TABLE_INFO.name());
+    }
+
+    private void insertObjectWithUid(String uid, TableInfo tableInfo) {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(IdentifiableColumns.UID, uid);
+        databaseAdapter.insert(tableInfo.name(), null, contentValues);
+    }
+
+    private void insertDataSet() {
+        String dataSetUid = "lyLU2wR22tC";
+        String categoryComboUid = "category_combo_uid";
+        insertObjectWithUid(categoryComboUid, CategoryComboTableInfo.TABLE_INFO);
+
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(IdentifiableColumns.UID, dataSetUid);
+        contentValues.put(DataSetTableInfo.Columns.CATEGORY_COMBO, categoryComboUid);
+        databaseAdapter.insert(DataSetTableInfo.TABLE_INFO.name(), null, contentValues);
     }
 
     @Test
-    public void persist_organisation_unit_tree() throws Exception {
-        organisationUnitCall.call();
+    public void persist_organisation_unit_tree() {
+        organisationUnitCall.blockingGet();
 
         IdentifiableObjectStore<OrganisationUnit> organisationUnitStore = OrganisationUnitStore.create(databaseAdapter);
         OrganisationUnit dbAfroArabicClinic = organisationUnitStore.selectByUid(expectedAfroArabicClinic.uid());
@@ -148,8 +148,8 @@ public class OrganisationUnitCallMockIntegrationShould extends BaseMockIntegrati
     }
 
     @Test
-    public void persist_organisation_unit_user_links() throws Exception {
-        organisationUnitCall.call();
+    public void persist_organisation_unit_user_links() {
+        organisationUnitCall.blockingGet();
 
         UserOrganisationUnitLinkStore userOrganisationUnitStore = UserOrganisationUnitLinkStoreImpl.create(databaseAdapter);
         List<UserOrganisationUnitLink> userOrganisationUnitLinks = userOrganisationUnitStore.selectAll();

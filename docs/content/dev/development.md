@@ -4,7 +4,7 @@
 
 ## Build
 
-There is `build.sh` script that builds the project, runs the test suite and performs additional code checks (PMD, CheckStyle, FindBugs). It takes longer than routine builds, but it is recommended to execute it before creating a Pull Request because it is used by the CI platform (Travis) to validate the Pull Requests.
+There is `build.sh` script that builds the project, runs the test suite and performs additional code checks (PMD, CheckStyle, Detekt). It takes longer than routine builds, but it is recommended to execute it before creating a Pull Request because it is used by the CI platform (Travis) to validate the Pull Requests.
 
 ## Testing
 
@@ -13,7 +13,6 @@ The SDK follows the standard test structure: unit tests (`test` folder) and inst
 There is third kind of tests, usually called `*RealIntegrationShould`, which usually connect to real DHIS2 servers and create databases in the device. They are very useful to test against a real DHIS2 API. These tests are commented out by default and are not executed in CI builds because they rely on a particular server configuration and availability. To execute these tests:
 
 - Remove the comment on `@Test` annotation.
-- Optionally define a database name replacing `d2 = D2Factory.forNewDatabase();` by `d2 = D2Factory.forDatabaseName("your-database.db");`. In this way data will be persisted in the device or emulator and could be browsed.
 - Check or update the instance URL, username and password passed during login.
 
 ## Debugging

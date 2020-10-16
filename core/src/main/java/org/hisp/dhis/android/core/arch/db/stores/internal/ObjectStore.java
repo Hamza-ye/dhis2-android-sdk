@@ -30,6 +30,7 @@ package org.hisp.dhis.android.core.arch.db.stores.internal;
 
 import androidx.annotation.NonNull;
 
+import java.util.Collection;
 import java.util.List;
 
 public interface ObjectStore<M> extends ReadableStore<M> {
@@ -38,6 +39,8 @@ public interface ObjectStore<M> extends ReadableStore<M> {
 
     long insert(@NonNull M m) throws RuntimeException;
 
+    void insert(@NonNull Collection<M> objects) throws RuntimeException;
+
     int delete();
 
     boolean deleteById(@NonNull M m);
@@ -45,4 +48,6 @@ public interface ObjectStore<M> extends ReadableStore<M> {
     boolean deleteWhere(String whereClause);
 
     void deleteWhereIfExists(@NonNull String whereClause) throws RuntimeException;
+
+    boolean isReady();
 }

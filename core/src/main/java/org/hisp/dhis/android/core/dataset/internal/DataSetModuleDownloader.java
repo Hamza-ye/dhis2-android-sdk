@@ -27,9 +27,11 @@
  */
 package org.hisp.dhis.android.core.dataset.internal;
 
-import org.hisp.dhis.android.core.arch.call.factories.internal.ListCallFactory;
+import org.hisp.dhis.android.core.arch.call.factories.internal.UidsCall;
 import org.hisp.dhis.android.core.arch.call.factories.internal.UidsCallFactory;
-import org.hisp.dhis.android.core.arch.modules.internal.MetadataModuleDownloader;
+import org.hisp.dhis.android.core.arch.helpers.UidsHelper;
+import org.hisp.dhis.android.core.arch.modules.internal.MetadataModuleByUidDownloader;
+import org.hisp.dhis.android.core.common.ObjectWithUid;
 import org.hisp.dhis.android.core.dataelement.DataElement;
 import org.hisp.dhis.android.core.dataset.DataSet;
 import org.hisp.dhis.android.core.indicator.Indicator;
@@ -37,47 +39,55 @@ import org.hisp.dhis.android.core.indicator.IndicatorType;
 import org.hisp.dhis.android.core.option.Option;
 import org.hisp.dhis.android.core.option.OptionSet;
 import org.hisp.dhis.android.core.period.internal.PeriodHandler;
+import org.hisp.dhis.android.core.validation.ValidationRule;
+import org.hisp.dhis.android.core.validation.internal.ValidationRuleUidsCall;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Callable;
 
 import javax.inject.Inject;
 
 import dagger.Reusable;
+import io.reactivex.Single;
 
 @Reusable
-public class DataSetModuleDownloader implements MetadataModuleDownloader<List<DataSet>> {
-    private final ListCallFactory<DataSet> dataSetCallFactory;
+public class DataSetModuleDownloader implements MetadataModuleByUidDownloader<List<DataSet>> {
+    private final UidsCallFactory<DataSet> dataSetCallFactory;
     private final UidsCallFactory<DataElement> dataElementCallFactory;
     private final UidsCallFactory<Indicator> indicatorCallFactory;
     private final UidsCallFactory<IndicatorType> indicatorTypeCallFactory;
-    private final UidsCallFactory<OptionSet> optionSetCallFactory;
-    private final UidsCallFactory<Option> optionCallFactory;
+    private final UidsCall<OptionSet> optionSetCall;
+    private final UidsCall<Option> optionCall;
+    private final UidsCall<ValidationRule> validationRuleCall;
+    private final ValidationRuleUidsCall validationRuleUidsCall;
     private final PeriodHandler periodHandler;
 
     @Inject
-    DataSetModuleDownloader(ListCallFactory<DataSet> dataSetCallFactory,
+    DataSetModuleDownloader(UidsCallFactory<DataSet> dataSetCallFactory,
                             UidsCallFactory<DataElement> dataElementCallFactory,
                             UidsCallFactory<Indicator> indicatorCallFactory,
                             UidsCallFactory<IndicatorType> indicatorTypeCallFactory,
-                            UidsCallFactory<OptionSet> optionSetCallFactory,
-                            UidsCallFactory<Option> optionCallFactory,
+                            UidsCall<OptionSet> optionSetCall,
+                            UidsCall<Option> optionCall,
+                            UidsCall<ValidationRule> validationRuleCall,
+                            ValidationRuleUidsCall validationRuleUidsCall,
                             PeriodHandler periodHandler) {
         this.dataSetCallFactory = dataSetCallFactory;
         this.dataElementCallFactory = dataElementCallFactory;
         this.indicatorCallFactory = indicatorCallFactory;
         this.indicatorTypeCallFactory = indicatorTypeCallFactory;
-        this.optionSetCallFactory = optionSetCallFactory;
-        this.optionCallFactory = optionCallFactory;
+        this.optionSetCall = optionSetCall;
+        this.optionCall = optionCall;
+        this.validationRuleCall = validationRuleCall;
+        this.validationRuleUidsCall = validationRuleUidsCall;
         this.periodHandler = periodHandler;
     }
 
     @Override
-    public Callable<List<DataSet>> downloadMetadata() {
-        return () -> {
+    public Single<List<DataSet>> downloadMetadata(Set<String> orgUnitDataSetUids) {
+        return Single.fromCallable(() -> {
 
-            List<DataSet> dataSets = dataSetCallFactory.create().call();
+            List<DataSet> dataSets = dataSetCallFactory.create(orgUnitDataSetUids).call();
 
             List<DataElement> dataElements = dataElementCallFactory.create(
                     DataSetParentUidsHelper.getDataElementUids(dataSets)).call();
@@ -89,13 +99,18 @@ public class DataSetModuleDownloader implements MetadataModuleDownloader<List<Da
                     DataSetParentUidsHelper.getIndicatorTypeUids(indicators)).call();
 
             Set<String> optionSetUids = DataSetParentUidsHelper.getAssignedOptionSetUids(dataElements);
-            optionSetCallFactory.create(optionSetUids).call();
+            optionSetCall.download(optionSetUids).blockingGet();
 
-            optionCallFactory.create(optionSetUids).call();
+            optionCall.download(optionSetUids).blockingGet();
+
+            List<ObjectWithUid> validationRuleUids =
+                    validationRuleUidsCall.download(UidsHelper.getUids(dataSets)).blockingGet();
+
+            validationRuleCall.download(UidsHelper.getUids(validationRuleUids)).blockingGet();
 
             periodHandler.generateAndPersist();
 
             return dataSets;
-        };
+        });
     }
 }

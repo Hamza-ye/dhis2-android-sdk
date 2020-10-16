@@ -47,10 +47,11 @@ import org.hisp.dhis.android.core.period.internal.PeriodModuleWiper;
 import org.hisp.dhis.android.core.program.internal.ProgramModuleWiper;
 import org.hisp.dhis.android.core.relationship.internal.RelationshipModuleWiper;
 import org.hisp.dhis.android.core.resource.internal.ResourceModuleWiper;
-import org.hisp.dhis.android.core.settings.internal.SystemSettingModuleWiper;
+import org.hisp.dhis.android.core.settings.internal.SettingModuleWiper;
 import org.hisp.dhis.android.core.systeminfo.internal.SystemInfoModuleWiper;
 import org.hisp.dhis.android.core.trackedentity.internal.TrackedEntityModuleWiper;
 import org.hisp.dhis.android.core.user.internal.UserModuleWiper;
+import org.hisp.dhis.android.core.validation.internal.ValidationModuleWiper;
 
 import java.util.Arrays;
 import java.util.List;
@@ -71,6 +72,7 @@ final class D2ModuleWipers {
             DataElementModuleWiper dataElement,
             DataSetModuleWiper dataSet,
             DataValueModuleWiper dataValue,
+            ValidationModuleWiper validation,
 
             EnrollmentModuleWiper enrollment,
             EventModuleWiper event,
@@ -88,7 +90,7 @@ final class D2ModuleWipers {
 
             ResourceModuleWiper resource,
             SystemInfoModuleWiper systemInfo,
-            SystemSettingModuleWiper systemSetting,
+            SettingModuleWiper systemSetting,
             UserModuleWiper user,
             TrackedEntityModuleWiper trackedEntity) {
 
@@ -99,6 +101,7 @@ final class D2ModuleWipers {
                 dataElement,
                 dataSet,
                 dataValue,
+                validation,
 
                 enrollment,
                 event,
